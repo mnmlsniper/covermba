@@ -12,38 +12,28 @@ new ApiCoverage(options)
 
 #### Parameters
 - `options` (Object):
-  - `swaggerUrl` (String): URL to Swagger specification
-  - `swaggerFile` (String): Path to local Swagger file
+  - `swaggerPath` (String): Path to Swagger specification file
+  - `baseUrl` (String): Base URL of the API
+  - `basePath` (String): Base path of the API (if not specified, will be extracted from Swagger)
   - `outputDir` (String): Directory for reports (default: 'coverage')
-  - `includeTags` (Array): Only track endpoints with these tags
-  - `excludeTags` (Array): Exclude endpoints with these tags
-  - `partialCoverageThreshold` (Number): Consider endpoint covered if this percentage of status codes is covered (default: 0.5)
+  - `title` (String): Title of the coverage report
+  - `debug` (Boolean): Enable debug logging
+  - `generateHtmlReport` (Boolean): Whether to generate HTML report
 
 ### Methods
 
-#### init()
-Initializes the coverage tracking system.
+#### start()
+Initializes and starts the coverage tracking system.
 
 ```javascript
-await apiCoverage.init();
+await apiCoverage.start();
 ```
 
-#### recordRequest(request)
-Records an API request for coverage tracking.
+#### stop()
+Stops the coverage tracking and generates reports.
 
 ```javascript
-apiCoverage.recordRequest({
-  method: 'GET',
-  path: '/api/users',
-  statusCode: 200
-});
-```
-
-#### generateReport()
-Generates a coverage report.
-
-```javascript
-await apiCoverage.generateReport();
+await apiCoverage.stop();
 ```
 
 ## SwaggerLoader Class
@@ -52,11 +42,11 @@ Handles loading and parsing of Swagger specifications.
 
 ### Methods
 
-#### loadSpecification(urlOrPath)
-Loads a Swagger specification from URL or file path.
+#### loadSpecification(path)
+Loads a Swagger specification from file path.
 
 ```javascript
-const spec = await swaggerLoader.loadSpecification('https://api.example.com/swagger.json');
+const spec = await swaggerLoader.loadSpecification('./swagger.json');
 ```
 
 #### parseEndpoints(spec)
@@ -66,29 +56,24 @@ Parses endpoints from Swagger specification.
 const endpoints = swaggerLoader.parseEndpoints(spec);
 ```
 
-## RequestTracker Class
+## RequestCollector Class
 
-Manages API request recording and storage.
+Collects API requests during test execution.
 
 ### Methods
 
-#### record(request)
-Records a single API request.
+#### collect(request)
+Collects a single request.
 
 ```javascript
-requestTracker.record({
-  method: 'GET',
-  path: '/api/users',
-  statusCode: 200,
-  timestamp: Date.now()
-});
+const collectedRequest = requestCollector.collect(request);
 ```
 
 #### getRequests()
-Retrieves all recorded requests.
+Retrieves all collected requests.
 
 ```javascript
-const requests = requestTracker.getRequests();
+const requests = requestCollector.getRequests();
 ```
 
 ## CoverageCalculator Class
@@ -136,7 +121,7 @@ Generates an HTML report.
 ```javascript
 await reportGenerator.generateHTML(coverage, {
   outputDir: 'coverage',
-  templatePath: './templates/report.ejs'
+  title: 'API Coverage Report'
 });
 ```
 
@@ -147,26 +132,6 @@ Generates a JSON report.
 await reportGenerator.generateJSON(coverage, 'coverage/coverage.json');
 ```
 
-## RequestCollector Class
-
-Collects API requests during test execution.
-
-### Methods
-
-#### collect(request)
-Collects a single request.
-
-```javascript
-const collectedRequest = requestCollector.collect(request);
-```
-
-#### getRequests()
-Retrieves all collected requests.
-
-```javascript
-const requests = requestCollector.getRequests();
-```
-
 ## Usage Examples
 
 ### Basic Usage
@@ -175,20 +140,17 @@ const requests = requestCollector.getRequests();
 import ApiCoverage from '@covermba/api-coverage';
 
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage'
+  swaggerPath: './swagger.json',
+  baseUrl: 'https://api.example.com',
+  basePath: '/api',
+  outputDir: 'coverage',
+  title: 'API Coverage Report',
+  generateHtmlReport: true
 });
 
-await apiCoverage.init();
-
-// Record requests during tests
-apiCoverage.recordRequest({
-  method: 'GET',
-  path: '/api/users',
-  statusCode: 200
-});
-
-await apiCoverage.generateReport();
+await apiCoverage.start();
+// ... run tests ...
+await apiCoverage.stop();
 ```
 
 ### With Playwright
@@ -200,25 +162,25 @@ import ApiCoverage from '@covermba/api-coverage';
 test.describe('API Coverage Tests', () => {
   let apiCoverage;
 
-  test.beforeAll(async () => {
+  test.beforeEach(async ({ request }) => {
     apiCoverage = new ApiCoverage({
-      swaggerUrl: 'https://api.example.com/swagger.json',
-      outputDir: 'coverage'
+      swaggerPath: './swagger.json',
+      baseUrl: 'https://api.example.com',
+      basePath: '/api',
+      outputDir: 'coverage',
+      title: 'API Coverage Report',
+      generateHtmlReport: true
     });
-    await apiCoverage.init();
+    await apiCoverage.start();
   });
 
   test('should track API coverage', async ({ request }) => {
     const response = await request.get('/api/users');
-    apiCoverage.recordRequest({
-      method: 'GET',
-      path: '/api/users',
-      statusCode: response.status()
-    });
+    expect(response.ok()).toBeTruthy();
   });
 
-  test.afterAll(async () => {
-    await apiCoverage.generateReport();
+  test.afterEach(async () => {
+    await apiCoverage.stop();
   });
 });
 ``` 

@@ -12,6 +12,8 @@ API Coverage предоставляет различные опции конфи
 |--------|------|---------|-------------|
 | `swaggerUrl` | string | - | URL спецификации Swagger |
 | `swaggerFile` | string | - | Путь к локальному файлу Swagger |
+| `baseUrl` | string | - | Базовый URL API |
+| `basePath` | string | - | Базовый путь API (если не указан, будет извлечен из Swagger) |
 | `outputDir` | string | 'coverage' | Директория для отчетов |
 | `includeTags` | string[] | [] | Отслеживать только эндпоинты с этими тегами |
 | `excludeTags` | string[] | [] | Исключить эндпоинты с этими тегами |
@@ -56,6 +58,12 @@ API Coverage предоставляет различные опции конфи
 # Установка URL Swagger
 export API_COVERAGE_SWAGGER_URL=https://api.example.com/swagger.json
 
+# Установка базового URL
+export API_COVERAGE_BASE_URL=https://api.example.com
+
+# Установка базового пути
+export API_COVERAGE_BASE_PATH=/api/v1
+
 # Установка директории для отчетов
 export API_COVERAGE_OUTPUT_DIR=coverage
 
@@ -69,47 +77,39 @@ export API_COVERAGE_PARTIAL_COVERAGE_THRESHOLD=0.5
 
 ```javascript
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage'
+    swaggerPath: 'https://api.example.com/swagger.json',
+    baseUrl: 'https://api.example.com',
+    basePath: '/api/v1',  // Опционально, будет извлечен из Swagger, если не указан
+    outputDir: 'coverage',
+    debug: true
 });
 ```
 
-### Расширенная конфигурация
+### Конфигурация с несколькими сервисами
 
 ```javascript
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage',
-  includeTags: ['public', 'private'],
-  excludeTags: ['deprecated'],
-  partialCoverageThreshold: 0.5,
-  reportTitle: 'Мой отчет о покрытии API',
-  reportDescription: 'Отчет о покрытии для Моего API',
-  ignorePaths: ['/health', '/metrics'],
-  ignoreMethods: ['OPTIONS'],
-  ignoreStatusCodes: [404],
-  recordRequestHeaders: true,
-  recordResponseHeaders: true,
-  maxRequestSize: 2048
+    swaggerPath: [
+        './swagger/user-service.json',
+        './swagger/order-service.json'
+    ],
+    baseUrl: 'https://api.example.com',
+    basePath: '/api/v1',  // Будет использоваться для всех сервисов
+    outputDir: 'coverage',
+    debug: true
 });
 ```
 
-### Конфигурация с переменными окружения
-
-```bash
-# Файл .env
-API_COVERAGE_SWAGGER_URL=https://api.example.com/swagger.json
-API_COVERAGE_OUTPUT_DIR=coverage
-API_COVERAGE_INCLUDE_TAGS=public,private
-API_COVERAGE_EXCLUDE_TAGS=deprecated
-API_COVERAGE_PARTIAL_COVERAGE_THRESHOLD=0.5
-```
+### Пользовательский базовый путь
 
 ```javascript
-// Загрузка переменных окружения
-require('dotenv').config();
-
-const apiCoverage = new ApiCoverage();
+const apiCoverage = new ApiCoverage({
+    swaggerPath: './swagger.json',
+    baseUrl: 'https://api.example.com',
+    basePath: '/custom/path',  // Переопределяет basePath из Swagger
+    outputDir: 'coverage',
+    debug: true
+});
 ```
 
 ## Лучшие практики

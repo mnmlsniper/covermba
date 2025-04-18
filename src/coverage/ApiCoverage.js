@@ -22,6 +22,7 @@ export class ApiCoverage {
      * @param {Object} options - Настройки библиотеки
      * @param {string} options.swaggerPath - Путь к Swagger спецификации (URL или путь к файлу)
      * @param {string} options.baseUrl - Базовый URL API
+     * @param {string} [options.basePath] - Базовый путь API (если не указан, будет извлечен из Swagger)
      * @param {boolean} [options.debug=false] - Включить отладочный режим
      * @param {string} [options.outputDir='coverage'] - Директория для сохранения отчетов
      * @param {string} [options.logLevel='info'] - Уровень логирования
@@ -29,13 +30,13 @@ export class ApiCoverage {
      * @param {boolean} [options.generateHtmlReport=false] - Включить генерацию HTML отчета
      */
     constructor(options = {}) {
-        this.collector = new RequestCollector(options);
         this.reportGenerator = new ReportGenerator(options);
         this.swaggerSpec = options.swaggerSpec;
         this.ignoreConfig = options.ignoreConfig || {};
         this.options = {
             swaggerPath: options.swaggerPath,
             baseUrl: options.baseUrl,
+            basePath: options.basePath,
             debug: options.debug || false,
             outputDir: options.outputDir || 'coverage',
             logLevel: options.logLevel || 'info',
@@ -46,6 +47,43 @@ export class ApiCoverage {
         this.endpoints = {};
         this.requests = [];
         this.isInitialized = false;
+        
+        // Initialize collector after setting up options
+        this.collector = new RequestCollector(this, this.options);
+    }
+
+    /**
+     * Загружает и парсит Swagger спецификацию
+     * @private
+     * @throws {Error} Если не удалось загрузить или распарсить спецификацию
+     */
+    async _loadSwaggerSpec() {
+        const { swaggerPath } = this.options;
+        
+        try {
+            let content;
+            if (swaggerPath.startsWith('http')) {
+                const response = await fetch(swaggerPath);
+                content = await response.text();
+            } else {
+                content = await fs.readFile(swaggerPath, 'utf8');
+            }
+
+            this.swaggerSpec = swaggerPath.endsWith('.yaml') || swaggerPath.endsWith('.yml')
+                ? yaml.load(content)
+                : JSON.parse(content);
+
+            // Извлекаем basePath из Swagger спецификации, если не указан в опциях
+            if (!this.options.basePath && this.swaggerSpec.basePath) {
+                this.options.basePath = this.swaggerSpec.basePath;
+                this._log('debug', `Extracted basePath from Swagger: ${this.options.basePath}`);
+            }
+
+            this._log('info', `Loaded Swagger spec from ${swaggerPath}`);
+        } catch (error) {
+            this._log('error', `Error loading Swagger spec: ${error.message}`);
+            throw error;
+        }
     }
 
     /**
@@ -62,6 +100,7 @@ export class ApiCoverage {
 
         try {
             await this._loadSwaggerSpec();
+            this._processSwaggerSpec();
             await this.collector.start();
             this.isInitialized = true;
             this._log('info', 'API coverage started');
@@ -93,187 +132,137 @@ export class ApiCoverage {
     }
 
     /**
-     * Загружает Swagger спецификацию:
-     * - Проверяет доступность URL или файла
-     * - Загружает содержимое
-     * - Парсит JSON или YAML
+     * Обрабатывает Swagger спецификацию и извлекает эндпоинты
      * @private
-     * @throws {Error} Если не удалось загрузить или распарсить спецификацию
      */
-    async _loadSwaggerSpec() {
-        const { swaggerPath } = this.options;
-        
-        if (!swaggerPath) {
-            throw new Error('Swagger path is not specified');
+    _processSwaggerSpec() {
+        if (!this.swaggerSpec?.paths) {
+            this._log('warn', 'No paths found in Swagger spec');
+            return;
         }
 
-        try {
-            let content;
-            if (swaggerPath.startsWith('http')) {
-                const response = await fetch(swaggerPath);
-                if (!response.ok) {
-                    throw new Error(`Failed to load Swagger spec: ${response.statusText}`);
+        Object.entries(this.swaggerSpec.paths).forEach(([endpointPath, methods]) => {
+            Object.entries(methods).forEach(([method, spec]) => {
+                if (['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(method.toLowerCase())) {
+                    // Normalize path
+                    let normalizedPath = endpointPath;
+                    if (!normalizedPath.startsWith('/')) {
+                        normalizedPath = `/${normalizedPath}`;
+                    }
+                    
+                    // Add basePath if not present and if basePath is defined
+                    if (this.options.basePath && !normalizedPath.startsWith(this.options.basePath)) {
+                        normalizedPath = `${this.options.basePath}${normalizedPath}`;
+                    }
+                    
+                    const endpointKey = `${method.toUpperCase()} ${normalizedPath}`;
+                    
+                    this._log('debug', `Processing endpoint: ${endpointKey}`);
+                    
+                    this.endpoints[endpointKey] = {
+                        path: normalizedPath,
+                        method: method.toUpperCase(),
+                        requests: [],
+                        summary: spec.summary,
+                        description: spec.description,
+                        tags: spec.tags,
+                        responses: spec.responses,
+                        expectedStatusCodes: Object.keys(spec.responses).map(code => parseInt(code, 10))
+                    };
                 }
-                content = await response.text();
-            } else {
-                content = await fs.readFile(swaggerPath, 'utf8');
-            }
-
-            const spec = swaggerPath.endsWith('.yaml') || swaggerPath.endsWith('.yml')
-                ? yaml.load(content)
-                : JSON.parse(content);
-
-            this.swaggerSpec = spec;
-            this._processSwaggerSpec(spec);
-            this._log('info', 'Swagger spec loaded successfully');
-        } catch (error) {
-            this._log('error', `Failed to load Swagger spec: ${error.message}`);
-            throw error;
-        }
-    }
-
-    /**
-     * Обрабатывает Swagger спецификацию:
-     * - Извлекает пути и методы
-     * - Нормализует пути
-     * - Создает структуру для отслеживания
-     * @private
-     * @param {Object} spec - Распарсенная Swagger спецификация
-     * @throws {Error} Если спецификация не содержит путей
-     */
-    _processSwaggerSpec(spec) {
-        if (!spec.paths) {
-            throw new Error('Invalid Swagger spec: missing paths');
-        }
-
-        // Обрабатываем каждый путь и метод
-        for (const [path, methods] of Object.entries(spec.paths)) {
-            for (const [method, details] of Object.entries(methods)) {
-                if (method === 'parameters') continue; // Пропускаем общие параметры
-
-                const endpointKey = `${method.toUpperCase()} ${path}`;
-                this.endpoints[endpointKey] = {
-                    path,
-                    method: method.toUpperCase(),
-                    summary: details.summary || '',
-                    description: details.description || '',
-                    tags: details.tags || [],
-                    responses: details.responses || {},
-                    requests: []
-                };
-            }
-        }
+            });
+        });
 
         this._log('debug', `Processed ${Object.keys(this.endpoints).length} endpoints`);
+        this._log('debug', `Available endpoints: ${Object.keys(this.endpoints).join(', ')}`);
     }
 
     /**
-     * Записывает информацию о выполненном запросе:
-     * - Сопоставляет запрос с эндпоинтом
-     * - Сохраняет детали запроса
-     * - Обновляет статистику покрытия
+     * Записывает информацию о выполненном запросе.
+     * УСТАРЕЛО: Используйте collector.collect() вместо этого метода.
+     * @deprecated Используйте collector.collect() для автоматического сбора запросов
      * @param {Object} request - Информация о запросе
-     * @param {string} request.url - URL запроса
      * @param {string} request.method - HTTP метод
-     * @param {Object} [request.headers] - Заголовки запроса
-     * @param {Object} [request.body] - Тело запроса
+     * @param {string} request.path - Путь запроса
+     * @param {number} request.status - HTTP статус ответа
+     * @param {Object} [request.requestBody] - Тело запроса
+     * @param {Object} [request.responseBody] - Тело ответа
      */
     recordRequest(request) {
-        const { method, path, statusCode } = request;
-        this.collector.recordRequest({
-            method: method.toUpperCase(),
-            path,
-            statusCode,
-            timestamp: new Date().toISOString()
-        });
+        this._log('debug', `Recording request: ${JSON.stringify(request)}`);
+        
+        // Normalize path
+        let normalizedPath = request.path;
+        if (!normalizedPath.startsWith('/')) {
+            normalizedPath = `/${normalizedPath}`;
+        }
+        
+        // Add basePath if not present
+        if (this.options.basePath && !normalizedPath.startsWith(this.options.basePath)) {
+            normalizedPath = `${this.options.basePath}${normalizedPath}`;
+        }
+        
+        const requestKey = `${request.method} ${normalizedPath}`;
+        
+        this._log('debug', `Normalized request key: ${requestKey}`);
+        this._log('debug', `Available endpoint keys: ${Object.keys(this.endpoints).join(', ')}`);
+        
+        // Find matching endpoint
+        const endpoint = this.endpoints[requestKey];
+        if (endpoint) {
+            this._log('debug', `Found matching endpoint: ${requestKey}`);
+            endpoint.requests.push(request);
+        } else {
+            this._log('debug', `No matching endpoint found for: ${requestKey}`);
+        }
     }
 
-    _calculateCoverage(requests) {
-        const endpoints = {};
+    _calculateCoverage() {
+        const endpoints = Object.values(this.endpoints).map(endpoint => {
+            const isCovered = endpoint.requests.length > 0;
+            const isPartiallyCovered = isCovered && endpoint.requests.some(request => 
+                endpoint.expectedStatusCodes.includes(request.status)
+            );
+            
+            return {
+                ...endpoint,
+                isCovered,
+                isPartiallyCovered
+            };
+        });
         
-        // Add endpoints from Swagger first
-        if (this.swaggerSpec?.paths) {
-            Object.entries(this.swaggerSpec.paths).forEach(([path, methods]) => {
-                Object.entries(methods).forEach(([method, spec]) => {
-                    if (['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(method.toLowerCase())) {
-                        const endpointKey = `${method.toUpperCase()} ${path}`;
-                        endpoints[endpointKey] = {
-                            path,
-                            method: method.toUpperCase(),
-                            requests: [],
-                            summary: spec.summary,
-                            description: spec.description,
-                            tags: spec.tags,
-                            responses: spec.responses,
-                            expectedStatusCodes: Object.keys(spec.responses).map(code => parseInt(code, 10))
-                        };
-                    }
-                });
-            });
-        }
-
-        // Add requests to corresponding endpoints
-        requests.forEach(request => {
-            const endpointKey = `${request.method} ${request.path}`;
-            if (endpoints[endpointKey]) {
-                endpoints[endpointKey].requests.push(request);
-            }
-        });
-
-        // Calculate coverage statistics
-        const totalEndpoints = Object.keys(endpoints).length;
-        let coveredEndpoints = 0;
-        let partialEndpoints = 0;
-
-        Object.values(endpoints).forEach(endpoint => {
-            if (endpoint.requests.length === 0) {
-                endpoint.isCovered = false;
-                endpoint.isPartiallyCovered = false;
-                return; // Uncovered endpoint
-            }
-
-            const coveredStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
-            const expectedStatusCodes = new Set(endpoint.expectedStatusCodes);
-
-            const coverageRatio = Array.from(coveredStatusCodes).filter(code => expectedStatusCodes.has(code)).length / expectedStatusCodes.size;
-
-            if (coverageRatio === 1) {
-                endpoint.isCovered = true;
-                endpoint.isPartiallyCovered = false;
-                coveredEndpoints++;
-            } else if (coverageRatio > 0) {
-                endpoint.isCovered = false;
-                endpoint.isPartiallyCovered = true;
-                partialEndpoints++;
-            } else {
-                endpoint.isCovered = false;
-                endpoint.isPartiallyCovered = false;
-            }
-        });
-
-        const coveragePercentage = totalEndpoints > 0 ? ((coveredEndpoints + partialEndpoints * 0.5) / totalEndpoints) * 100 : 0;
-
-        // Group endpoints by service (using tags or path segments)
+        const totalEndpoints = endpoints.length;
+        const coveredEndpoints = endpoints.filter(e => e.isCovered).length;
+        const partiallyCoveredEndpoints = endpoints.filter(e => e.isPartiallyCovered).length;
+        const percentage = totalEndpoints > 0 ? (coveredEndpoints / totalEndpoints) * 100 : 0;
+        
+        // Группируем эндпоинты по сервисам
         const services = {};
-        Object.entries(endpoints).forEach(([key, endpoint]) => {
-            const serviceName = endpoint.tags?.[0] || endpoint.path.split('/')[1] || 'default';
+        endpoints.forEach(endpoint => {
+            const serviceName = endpoint.tags?.[0] || 'api';
             if (!services[serviceName]) {
                 services[serviceName] = {
                     name: serviceName,
                     endpoints: {}
                 };
             }
+            const key = `${endpoint.method} ${endpoint.path}`;
             services[serviceName].endpoints[key] = endpoint;
         });
-
+        
+        this._log('debug', `Coverage calculation:
+            Total endpoints: ${totalEndpoints}
+            Covered endpoints: ${coveredEndpoints}
+            Partially covered endpoints: ${partiallyCoveredEndpoints}
+            Coverage percentage: ${percentage}%`);
+        
         return {
+            endpoints,
+            services,
             totalEndpoints,
             coveredEndpoints,
-            partialEndpoints,
-            missingEndpoints: totalEndpoints - coveredEndpoints - partialEndpoints,
-            percentage: coveragePercentage,
-            endpoints: Object.values(endpoints),
-            services
+            partiallyCoveredEndpoints,
+            percentage
         };
     }
 
@@ -319,7 +308,7 @@ export class ApiCoverage {
                 totalEndpoints: coverage.totalEndpoints,
                 coveredEndpoints: coverage.coveredEndpoints,
                 partialEndpoints: coverage.partialEndpoints,
-                missingEndpoints: coverage.missingEndpoints,
+                missingEndpoints: coverage.totalEndpoints - coverage.coveredEndpoints - coverage.partialEndpoints,
                 services: coverage.services,
                 isPartiallyCovered: (endpoint) => {
                     if (!endpoint.requests || endpoint.requests.length === 0) {
@@ -375,16 +364,22 @@ export class ApiCoverage {
     }
 
     async generateReport() {
-        const requests = this.collector.getRequests();
-        const coverage = this._calculateCoverage(requests);
+        if (!this.isInitialized) {
+            throw new Error('API coverage not initialized. Call start() first.');
+        }
+
+        // Рассчитываем покрытие
+        const coverage = this._calculateCoverage();
         
-        // Save coverage data
+        // Сохраняем отчет
         await this._saveCoverage(coverage);
         
-        // Generate HTML report
+        // Генерируем HTML отчет, если включено
         if (this.options.generateHtmlReport) {
             await this._generateHtmlReport(coverage);
         }
+        
+        this._log('debug', `Generated coverage report: ${JSON.stringify(coverage, null, 2)}`);
         
         return coverage;
     }

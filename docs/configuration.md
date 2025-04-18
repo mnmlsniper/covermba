@@ -12,6 +12,8 @@ API Coverage provides various configuration options to customize its behavior. T
 |--------|------|---------|-------------|
 | `swaggerUrl` | string | - | URL to Swagger specification |
 | `swaggerFile` | string | - | Path to local Swagger file |
+| `baseUrl` | string | - | Base URL of your API |
+| `basePath` | string | - | Base path of your API (if not specified, will be extracted from Swagger) |
 | `outputDir` | string | 'coverage' | Directory for reports |
 | `includeTags` | string[] | [] | Only track endpoints with these tags |
 | `excludeTags` | string[] | [] | Exclude endpoints with these tags |
@@ -26,6 +28,7 @@ API Coverage provides various configuration options to customize its behavior. T
 | `reportTemplate` | string | 'default' | Template to use for HTML report |
 | `generateJsonReport` | boolean | true | Whether to generate JSON report |
 | `generateHtmlReport` | boolean | true | Whether to generate HTML report |
+| `debug` | boolean | false | Enable debug logging |
 
 ### Coverage Options
 
@@ -46,6 +49,10 @@ API Coverage provides various configuration options to customize its behavior. T
 | `recordRequestBody` | boolean | false | Whether to record request body |
 | `recordResponseBody` | boolean | false | Whether to record response body |
 | `maxRequestSize` | number | 1024 | Maximum size of request/response to record (in bytes) |
+| `collectorOptions` | object | {} | Options for RequestCollector |
+  - `extractPathFromUrl` | boolean | false | Whether to extract path from URL by removing baseUrl |
+  - `transformRequest` | function | null | Function to transform request before recording |
+  - `onRequest` | function | null | Callback when a request is collected |
 
 ## Environment Variables
 
@@ -55,6 +62,12 @@ Example:
 ```bash
 # Set Swagger URL
 export API_COVERAGE_SWAGGER_URL=https://api.example.com/swagger.json
+
+# Set base URL
+export API_COVERAGE_BASE_URL=https://api.example.com
+
+# Set base path
+export API_COVERAGE_BASE_PATH=/api/v1
 
 # Set output directory
 export API_COVERAGE_OUTPUT_DIR=coverage
@@ -69,8 +82,9 @@ export API_COVERAGE_PARTIAL_COVERAGE_THRESHOLD=0.5
 
 ```javascript
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage'
+    swaggerUrl: 'https://api.example.com/swagger.json',
+    baseUrl: 'https://api.example.com',
+    outputDir: './coverage'
 });
 ```
 
@@ -78,38 +92,55 @@ const apiCoverage = new ApiCoverage({
 
 ```javascript
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage',
-  includeTags: ['public', 'private'],
-  excludeTags: ['deprecated'],
-  partialCoverageThreshold: 0.5,
-  reportTitle: 'My API Coverage Report',
-  reportDescription: 'Coverage report for My API',
-  ignorePaths: ['/health', '/metrics'],
-  ignoreMethods: ['OPTIONS'],
-  ignoreStatusCodes: [404],
-  recordRequestHeaders: true,
-  recordResponseHeaders: true,
-  maxRequestSize: 2048
+    swaggerUrl: 'https://api.example.com/swagger.json',
+    baseUrl: 'https://api.example.com',
+    outputDir: './coverage',
+    reportTitle: 'API Coverage Report',
+    generateHtmlReport: true,
+    debug: true,
+    ignorePaths: ['/health', '/metrics'],
+    minCoveragePercentage: 80,
+    recordRequestHeaders: true,
+    maxRequestSize: 1024 * 1024, // 1MB
+    collectorOptions: {
+        extractPathFromUrl: true,
+        transformRequest: (request) => {
+            // Transform request before recording
+            return request;
+        },
+        onRequest: (request) => {
+            // Handle collected request
+            console.log('Request collected:', request);
+        }
+    }
 });
 ```
 
-### Configuration with Environment Variables
-
-```bash
-# .env file
-API_COVERAGE_SWAGGER_URL=https://api.example.com/swagger.json
-API_COVERAGE_OUTPUT_DIR=coverage
-API_COVERAGE_INCLUDE_TAGS=public,private
-API_COVERAGE_EXCLUDE_TAGS=deprecated
-API_COVERAGE_PARTIAL_COVERAGE_THRESHOLD=0.5
-```
+### Multiple Services Configuration
 
 ```javascript
-// Load environment variables
-require('dotenv').config();
+const apiCoverage = new ApiCoverage({
+    swaggerPath: [
+        './swagger/user-service.json',
+        './swagger/order-service.json'
+    ],
+    baseUrl: 'https://api.example.com',
+    basePath: '/api/v1',  // Will be used for all services
+    outputDir: 'coverage',
+    debug: true
+});
+```
 
-const apiCoverage = new ApiCoverage();
+### Custom Base Paths
+
+```javascript
+const apiCoverage = new ApiCoverage({
+    swaggerPath: './swagger.json',
+    baseUrl: 'https://api.example.com',
+    basePath: '/custom/path',  // Override basePath from Swagger
+    outputDir: 'coverage',
+    debug: true
+});
 ```
 
 ## Best Practices
@@ -121,4 +152,9 @@ const apiCoverage = new ApiCoverage();
 5. **Limit Data Collection**: Only record necessary request/response data to save space
 6. **Use Tags**: Use tags to organize and filter endpoints
 7. **Set Reasonable Thresholds**: Set reasonable partial coverage thresholds based on your needs
-8. **Document Configuration**: Document your configuration choices for team members 
+8. **Document Configuration**: Document your configuration choices for team members
+9. **Always set `baseUrl`**: Ensure correct path extraction
+10. **Use `ignorePaths`**: For endpoints that don't need coverage
+11. **Enable `debug`**: During development to troubleshoot issues
+12. **Set appropriate `maxRequestSize`**: Avoid memory issues
+13. **Use `collectorOptions`**: Customize request collection behavior 

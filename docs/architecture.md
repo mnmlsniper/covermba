@@ -9,7 +9,7 @@ The API Coverage tool is designed to track and report API test coverage based on
 ```mermaid
 graph TD
     A[ApiCoverage] --> B[SwaggerLoader]
-    A --> C[RequestTracker]
+    A --> C[RequestCollector]
     A --> D[CoverageCalculator]
     A --> E[ReportGenerator]
     
@@ -27,21 +27,24 @@ graph TD
 
 ### 1. ApiCoverage (Facade)
 The main entry point that orchestrates the entire process. It provides a simple interface for:
-- Initializing the coverage tracking
-- Recording API requests
+- Initializing the coverage tracking with Swagger specification
+- Setting up request collection
+- Starting and stopping coverage tracking
 - Generating coverage reports
 
 ### 2. SwaggerLoader
 Responsible for:
-- Loading Swagger specifications from various sources (URL, file)
+- Loading Swagger specifications from file
 - Parsing and validating the specification
+- Extracting basePath if not provided
 - Providing access to API endpoint definitions
 
-### 3. RequestTracker
+### 3. RequestCollector
 Handles:
-- Recording API requests with their details
-- Storing request history
-- Providing access to recorded requests
+- Collecting API requests from Playwright
+- Extracting paths from URLs by removing baseUrl
+- Transforming requests into a standardized format
+- Storing requests for coverage calculation
 
 ### 4. CoverageCalculator
 Calculates:
@@ -60,13 +63,17 @@ Generates:
 ## Data Flow
 
 1. Swagger specification is loaded and parsed
-2. API requests are recorded during test execution
-3. Coverage is calculated based on recorded requests and Swagger spec
-4. Reports are generated from coverage data
+2. RequestCollector is initialized with baseUrl and basePath
+3. API requests are automatically collected during test execution
+4. Coverage is calculated based on recorded requests and Swagger spec
+5. Reports are generated when coverage tracking is stopped
 
 ## Benefits
 
 - **Modularity**: Each component can be replaced or modified independently
 - **Testability**: Components can be tested in isolation
 - **Flexibility**: Easy to add new features or change existing ones
-- **Maintainability**: Clear separation of concerns makes code easier to understand and maintain 
+- **Maintainability**: Clear separation of concerns makes code easier to understand and maintain
+- **Integration**: Seamless integration with Playwright test framework
+- **Automatic Collection**: No need to manually record requests
+- **Configurable**: Easy to configure through options 

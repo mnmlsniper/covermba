@@ -1,31 +1,38 @@
 import { test, expect } from '@playwright/test';
-import { ApiCoverage } from '../../../src/index.js';
+import { ApiCoverage } from '../../../src/coverage/ApiCoverage.js';
+import { RequestCollector } from '../../../src/coverage/RequestCollector.js';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 let apiCoverage;
+let collector;
 
 test.beforeAll(async () => {
     apiCoverage = new ApiCoverage({
         swaggerPath: 'https://apichallenges.herokuapp.com/docs/swagger',
         baseUrl: 'https://apichallenges.herokuapp.com',
-        debug: false,
+        debug: false,  // Включаем отладку
         outputDir: 'coverage-test',
-        logLevel: 'debug',
-        logFile: 'coverage-test/coverage.log',
         generateHtmlReport: true
     });
 
     await apiCoverage.start();
+    collector = new RequestCollector(apiCoverage);
+    
+    // Log loaded endpoints for debugging
+    console.log('Loaded endpoints:', Object.keys(apiCoverage.endpoints));
+    console.log('Swagger spec:', apiCoverage.swaggerSpec);
 });
 
 test('should track API coverage with multiple requests', async ({ request }) => {
     // 1. Создаем новую сессию
     const challengerResponse = await request.post('https://apichallenges.herokuapp.com/challenger');
-    apiCoverage.recordRequest({
+    await collector.collect({
         method: 'POST',
-        path: '/challenger',
-        statusCode: challengerResponse.status()
+        url: 'https://apichallenges.herokuapp.com/challenger',
+        statusCode: challengerResponse.status(),
+        headers: challengerResponse.headers()
     });
     
     expect(challengerResponse.status()).toBe(201);
@@ -38,10 +45,11 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             'x-challenger': challengerId
         }
     });
-    apiCoverage.recordRequest({
+    await collector.collect({
         method: 'GET',
-        path: '/challenges',
-        statusCode: challengesResponse.status()
+        url: 'https://apichallenges.herokuapp.com/challenges',
+        statusCode: challengesResponse.status(),
+        headers: challengesResponse.headers()
     });
     expect(challengesResponse.status()).toBe(200);
 
@@ -58,19 +66,23 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             'x-challenger': challengerId
         }
     });
-    apiCoverage.recordRequest({
+    await collector.collect({
         method: 'GET',
-        path: '/todos',
-        statusCode: todosResponse.status()
+        url: 'https://apichallenges.herokuapp.com/todos',
+        statusCode: todosResponse.status(),
+        headers: todosResponse.headers()
     });
     expect(todosResponse.status()).toBe(200);
 
-    // Останавливаем сбор данных
-    await apiCoverage.stop();
-
     // Генерируем отчет и получаем данные о покрытии
     const coverage = await apiCoverage.generateReport();
-    console.log('Coverage data:', JSON.stringify(coverage, null, 2));
+    console.log('Coverage report:', JSON.stringify(coverage, null, 2));
+    
+    // Log all endpoints and their requests
+    console.log('All endpoints:', coverage.endpoints.map(e => ({
+        key: `${e.method} ${e.path}`,
+        requests: e.requests.length
+    })));
     
     expect(coverage).toBeTruthy();
     expect(coverage.totalEndpoints).toBeGreaterThan(0);
