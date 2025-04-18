@@ -1,6 +1,55 @@
-# API Coverage Tool
+# API Coverage
 
-Инструмент для отслеживания покрытия API тестами на основе Swagger/OpenAPI спецификации.
+Библиотека для отслеживания покрытия API тестами на основе Swagger/OpenAPI спецификации.
+
+## Установка
+
+```bash
+npm install api-coverage
+```
+
+## Использование
+
+```javascript
+import { ApiCoverage } from 'api-coverage';
+
+const apiCoverage = new ApiCoverage({
+    swaggerPath: 'path/to/swagger.json',
+    baseUrl: 'https://api.example.com',
+    debug: true,
+    outputDir: 'coverage'
+});
+
+// Запуск отслеживания
+await apiCoverage.start();
+
+// Запись запроса
+apiCoverage.recordRequest({
+    method: 'GET',
+    path: '/api/v1/users',
+    statusCode: 200
+});
+
+// Остановка и получение отчета
+const coverage = await apiCoverage.stop();
+```
+
+## Конфигурация
+
+- `swaggerPath` - путь к Swagger/OpenAPI спецификации
+- `baseUrl` - базовый URL API
+- `debug` - включить отладочный режим
+- `outputDir` - директория для сохранения отчетов
+
+## Тестирование
+
+```bash
+npm test
+```
+
+## Лицензия
+
+MIT
 
 ## Возможности
 
@@ -11,12 +60,6 @@
 - Генерация HTML отчета о покрытии
 - Поддержка как синхронных, так и асинхронных запросов
 - Поддержка различных тестовых фреймворков (Jest, AVA, Playwright)
-
-## Установка
-
-```bash
-npm install api-coverage
-```
 
 ## Основные компоненты
 
@@ -158,20 +201,6 @@ test.describe('API Coverage Tests', () => {
 
 Отчет сохраняется в директории, указанной в `outputDir`.
 
-## Конфигурация
-
-```javascript
-{
-  swaggerPath: string | string[],  // Путь к Swagger файлу или массив путей
-  baseUrl: string,                 // Базовый URL API
-  debug: boolean,                  // Включить отладочный вывод
-  outputDir: string,               // Директория для отчетов
-  ignorePaths: string[],          // Регулярные выражения для игнорирования путей
-  logFile: string,                // Путь к файлу логов
-  logLevel: 'none' | 'debug' | 'info' | 'warn' | 'error'  // Уровень логирования
-}
-```
-
 ## Разработка
 
 ### Структура проекта
@@ -232,10 +261,6 @@ new ApiCoverage(options)
 debug: true,
 logLevel: 'debug'
 ```
-
-## Лицензия
-
-MIT
 
 ## Authors
 

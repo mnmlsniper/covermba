@@ -1,13 +1,17 @@
 {
   "name": "cover-mba",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "API coverage tracking library for automated testing",
   "type": "module",
   "main": "src/index.js",
+  "files": [
+    "src/**/*.js"
+  ],
   "scripts": {
     "test": "playwright test",
     "test:watch": "playwright test --watch",
-    "test:coverage": "playwright test --reporter=html"
+    "test:coverage": "playwright test --reporter=html",
+    "prepare": "npm run test"
   },
   "keywords": [
     "api",
@@ -22,14 +26,14 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "c8": "^9.1.0",
     "eslint": "^8.56.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.6.0",
-    "swagger-parser": "^10.0.3",
-    "ts-node": "^10.9.2"
+    "swagger-parser": "^10.0.3"
   },
   "engines": {
     "node": ">=14.0.0"
@@ -43,6 +47,6 @@
   },
   "homepage": "https://github.com/sniper/api-coverage#readme",
   "dependencies": {
-    "@playwright/test": "^1.52.0"
+    "ejs": "^3.1.9"
   }
 }
