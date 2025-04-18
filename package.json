@@ -27,9 +27,6 @@
     "@playwright/test": "^1.42.1",
     "ava": "^6.1.0"
   },
-  "peerDependencies": {
-    "@playwright/test": "^1.0.0"
-  },
   "files": [
     "src/coverage/ApiCoverage.js",
     "src/coverage/TestReporter.js",

@@ -1,51 +1,45 @@
-class RequestCollector {
-  constructor(apiCoverage) {
+export class RequestCollector {
+  constructor() {
     this.requests = [];
-    this.apiCoverage = apiCoverage;
   }
 
   collect(target) {
-    const proxy = new Proxy(target, {
-      get: (obj, prop) => {
-        const originalMethod = obj[prop];
-        if (typeof originalMethod === 'function') {
-          return async (...args) => {
-            const [url, options = {}] = args;
-            const method = prop.toUpperCase();
+    const self = this;
+    
+    return new Proxy(target, {
+      get(target, prop) {
+        if (typeof target[prop] === 'function') {
+          return async function(...args) {
+            const startTime = Date.now();
+            const response = await target[prop].apply(target, args);
             
-            // Make the actual request
-            const response = await originalMethod.apply(obj, args);
-            
-            // Collect request data
-            const urlObj = new URL(url);
-            const requestData = {
-              timestamp: new Date().toISOString(),
-              method,
-              path: urlObj.pathname,
-              queryParams: Object.fromEntries(urlObj.searchParams),
-              statusCode: response.status(),
-              headers: options.headers || {},
-              body: options.data || null
+            // Собираем информацию о запросе
+            const request = {
+              method: args[1]?.method || 'GET',
+              url: args[0],
+              path: new URL(args[0]).pathname,
+              statusCode: response.status,
+              duration: Date.now() - startTime,
+              timestamp: new Date().toISOString()
             };
 
-            this.requests.push(requestData);
-            // Record request in ApiCoverage
-            if (this.apiCoverage) {
-              console.log(`[RequestCollector] Recording request in ApiCoverage: ${method} ${urlObj.pathname}`);
-              this.apiCoverage.recordRequest(requestData);
-            } else {
-              console.warn(`[RequestCollector] ApiCoverage is not set, request not recorded: ${method} ${urlObj.pathname}`);
+            // Добавляем заголовки, если они есть
+            if (args[1]?.headers) {
+              request.headers = args[1].headers;
             }
-            console.log(`[RequestCollector] Request collected: ${method} ${urlObj.pathname}`, requestData);
 
+            // Добавляем тело запроса, если оно есть
+            if (args[1]?.body) {
+              request.body = args[1].body;
+            }
+
+            self.requests.push(request);
             return response;
           };
         }
-        return originalMethod;
+        return target[prop];
       }
     });
-
-    return proxy;
   }
 
   getRequests() {
@@ -55,6 +49,4 @@ class RequestCollector {
   clear() {
     this.requests = [];
   }
-}
-
-export { RequestCollector }; 
+} 
