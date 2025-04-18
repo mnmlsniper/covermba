@@ -1,0 +1,20 @@
+# Исходные файлы и тесты
+src/__tests__
+demo/
+tests/
+
+# Конфигурационные файлы
+.eslintrc
+.gitignore
+.npmignore
+jest.config.js
+playwright.config.js
+
+# Документация
+README.md
+LICENSE
+
+# Временные файлы
+coverage/
+*.log
+node_modules/ 

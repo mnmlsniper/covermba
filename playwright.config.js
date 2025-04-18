@@ -1,11 +1,13 @@
+// @ts-check
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './src/__tests__',
+  testMatch: '**/*.test.js',
   use: {
-    baseURL: 'https://api.example.com',
+    headless: true,
+    viewport: { width: 1280, height: 720 },
+    ignoreHTTPSErrors: true,
   },
-  reporter: [['list'], ['html']],
-  workers: 1,
-  timeout: 30000,
+  reporter: 'list',
 }); 

@@ -1,9 +1,8 @@
-import test from 'ava';
+import { test, expect } from '@playwright/test';
 import { ApiCoverage } from '../coverage/ApiCoverage.js';
 import { RequestCollector } from '../collector/RequestCollector.js';
-import { chromium } from '@playwright/test';
 
-test('should track API coverage with real requests', async (t) => {
+test('should track API coverage with real requests', async ({ page }) => {
     // Инициализируем API coverage
     const apiCoverage = new ApiCoverage({
         swaggerPath: 'https://petstore.swagger.io/v2/swagger.json',
@@ -14,11 +13,6 @@ test('should track API coverage with real requests', async (t) => {
 
     // Инициализируем сборщик запросов
     const collector = new RequestCollector();
-
-    // Запускаем браузер
-    const browser = await chromium.launch();
-    const context = await browser.newContext();
-    const page = await context.newPage();
 
     try {
         // Запускаем отслеживание
@@ -58,26 +52,24 @@ test('should track API coverage with real requests', async (t) => {
         const coverage = await apiCoverage.stop();
 
         // Проверяем результаты
-        t.truthy(coverage);
-        t.true(coverage.totalEndpoints > 0);
-        t.true(coverage.coveredEndpoints > 0);
-        t.true(coverage.coveragePercentage > 0);
+        expect(coverage).toBeTruthy();
+        expect(coverage.totalEndpoints).toBeGreaterThan(0);
+        expect(coverage.coveredEndpoints).toBeGreaterThan(0);
+        expect(coverage.coveragePercentage).toBeGreaterThan(0);
 
         // Проверяем, что запросы были записаны
-        t.true(requests.length >= 2);
-        t.is(requests[0].method(), 'GET');
-        t.is(new URL(requests[0].url()).pathname, '/v2/pet/1');
-        t.is(requests[1].method(), 'GET');
-        t.is(new URL(requests[1].url()).pathname, '/v2/store/inventory');
+        expect(requests.length).toBeGreaterThanOrEqual(2);
+        expect(requests[0].method()).toBe('GET');
+        expect(new URL(requests[0].url()).pathname).toBe('/v2/pet/1');
+        expect(requests[1].method()).toBe('GET');
+        expect(new URL(requests[1].url()).pathname).toBe('/v2/store/inventory');
 
     } catch (error) {
-        t.fail(`Test failed: ${error.message}`);
-    } finally {
-        await browser.close();
+        throw new Error(`Test failed: ${error.message}`);
     }
 });
 
-test('should track API coverage in basic test scenario', async (t) => {
+test('should track API coverage in basic test scenario', async ({ page }) => {
     // Инициализируем API coverage
     const apiCoverage = new ApiCoverage({
         swaggerPath: 'https://petstore.swagger.io/v2/swagger.json',
@@ -88,11 +80,6 @@ test('should track API coverage in basic test scenario', async (t) => {
 
     // Инициализируем сборщик запросов
     const collector = new RequestCollector();
-
-    // Запускаем браузер
-    const browser = await chromium.launch();
-    const context = await browser.newContext();
-    const page = await context.newPage();
 
     try {
         // Запускаем отслеживание
@@ -117,11 +104,11 @@ test('should track API coverage in basic test scenario', async (t) => {
         // Базовый сценарий тестирования
         // 1. Получаем информацию о питомце
         await page.goto('https://petstore.swagger.io/v2/pet/1');
-        t.is(await page.title(), 'Swagger UI');
+        expect(await page.title()).toBe('Swagger UI');
 
         // 2. Проверяем инвентарь магазина
         await page.goto('https://petstore.swagger.io/v2/store/inventory');
-        t.is(await page.title(), 'Swagger UI');
+        expect(await page.title()).toBe('Swagger UI');
 
         // 3. Создаем нового питомца
         const newPet = {
@@ -131,16 +118,17 @@ test('should track API coverage in basic test scenario', async (t) => {
         };
 
         const response = await page.evaluate(async (pet) => {
-            return await fetch('https://petstore.swagger.io/v2/pet', {
+            const res = await fetch('https://petstore.swagger.io/v2/pet', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(pet)
             });
+            return { status: res.status };
         }, newPet);
 
-        t.is(response.status, 200);
+        expect(response.status).toBe(200);
 
         // Записываем запросы в покрытие
         const requests = collector.getRequests();
@@ -156,28 +144,26 @@ test('should track API coverage in basic test scenario', async (t) => {
         const coverage = await apiCoverage.stop();
 
         // Проверяем результаты
-        t.truthy(coverage);
-        t.true(coverage.totalEndpoints > 0);
-        t.true(coverage.coveredEndpoints > 0);
-        t.true(coverage.coveragePercentage > 0);
+        expect(coverage).toBeTruthy();
+        expect(coverage.totalEndpoints).toBeGreaterThan(0);
+        expect(coverage.coveredEndpoints).toBeGreaterThan(0);
+        expect(coverage.coveragePercentage).toBeGreaterThan(0);
 
         // Проверяем, что запросы были записаны
-        t.true(requests.length >= 3);
+        expect(requests.length).toBeGreaterThanOrEqual(3);
         
         // Проверяем основные запросы
         const petRequests = requests.filter(r => 
             new URL(r.url()).pathname.includes('/pet')
         );
-        t.true(petRequests.length >= 2);
+        expect(petRequests.length).toBeGreaterThanOrEqual(2);
         
         const storeRequests = requests.filter(r => 
             new URL(r.url()).pathname.includes('/store')
         );
-        t.true(storeRequests.length >= 1);
+        expect(storeRequests.length).toBeGreaterThanOrEqual(1);
 
     } catch (error) {
-        t.fail(`Test failed: ${error.message}`);
-    } finally {
-        await browser.close();
+        throw new Error(`Test failed: ${error.message}`);
     }
 }); 

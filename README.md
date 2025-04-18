@@ -1,9 +1,16 @@
-# API Coverage
+# API Coverage Tool
 
-[![npm version](https://badge.fury.io/js/api-coverage.svg)](https://badge.fury.io/js/api-coverage)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Инструмент для отслеживания покрытия API тестами на основе Swagger/OpenAPI спецификации.
 
-Библиотека для отслеживания покрытия API тестами на основе Swagger/OpenAPI спецификации.
+## Возможности
+
+- Автоматическое определение всех эндпоинтов из Swagger/OpenAPI спецификации
+- Отслеживание вызовов API во время выполнения тестов
+- Поддержка различных HTTP методов (GET, POST, PUT, DELETE и т.д.)
+- Отслеживание статус кодов ответов
+- Генерация HTML отчета о покрытии
+- Поддержка как синхронных, так и асинхронных запросов
+- Поддержка различных тестовых фреймворков (Jest, AVA, Playwright)
 
 ## Установка
 
