@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "playwright test tests/api-coverage.test.js",
-    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
+    "test:unit": "ava src/__tests__/**/*.test.js",
     "test:all": "npm run test && npm run test:unit"
   },
   "keywords": [
@@ -20,12 +20,12 @@
   "author": "mnmlsniper",
   "license": "MIT",
   "dependencies": {
-    "js-yaml": "^4.1.0",
-    "ejs": "^3.1.9"
+    "ejs": "^3.1.9",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.42.1",
-    "jest": "^29.7.0"
+    "ava": "^6.1.0"
   },
   "peerDependencies": {
     "@playwright/test": "^1.0.0"
@@ -35,10 +35,5 @@
     "src/coverage/TestReporter.js",
     "src/coverage/config.js",
     "src/coverage/templates/report.ejs"
-  ],
-  "jest": {
-    "transform": {},
-    "testEnvironment": "node",
-    "extensionsToTreatAsEsm": [".js"]
-  }
+  ]
 }
