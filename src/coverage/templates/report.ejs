@@ -1,109 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Coverage Report</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        .summary {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-        }
-        .stat {
-            font-size: 24px;
-            font-weight: bold;
-            color: #007bff;
-        }
-        .endpoints {
-            margin-top: 30px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-        }
-        .method {
-            font-weight: bold;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        .GET { background-color: #e3f2fd; color: #0d47a1; }
-        .POST { background-color: #e8f5e9; color: #1b5e20; }
-        .PUT { background-color: #fff3e0; color: #e65100; }
-        .DELETE { background-color: #ffebee; color: #b71c1c; }
-        .covered { color: #28a745; }
-        .not-covered { color: #dc3545; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>API Coverage Report</h1>
-            <p>Generated on <%= timestamp %></p>
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+        <link href="assets/styles.css" rel="stylesheet">
+
+        <title>API Coverage Report</title>
+    </head>
+    <body>
+        <div class="container mt-4">
+            <h1 class="mb-4">API Coverage Report</h1>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Coverage Summary</h5>
+                    <div class="progress mb-3" style="height: 30px;">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: <%= coverage.percentage %>%" 
+                             aria-valuenow="<%= coverage.percentage %>" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            <%= coverage.percentage.toFixed(2) %>%
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Total Endpoints</h6>
+                                    <p class="card-text"><%= coverage.total %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Covered</h6>
+                                    <p class="card-text"><%= coverage.covered %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Partial</h6>
+                                    <p class="card-text"><%= coverage.partial %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Missing</h6>
+                                    <p class="card-text"><%= coverage.missing %></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs mb-4" id="coverageTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">All</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="missing-tab" data-bs-toggle="tab" data-bs-target="#missing" type="button" role="tab">Missing</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="partial-tab" data-bs-toggle="tab" data-bs-target="#partial" type="button" role="tab">Partial</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="covered-tab" data-bs-toggle="tab" data-bs-target="#covered" type="button" role="tab">Covered</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="coverageTabsContent">
+                <div class="tab-pane fade show active" id="all" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapse-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                            aria-controls="collapse-<%= serviceName %>-<%= index %>">
+                                            <div class="d-flex align-items-center w-100">
+                                                <span class="badge <%= endpoint.isCovered ? 'bg-success' : (endpoint.isPartiallyCovered ? 'bg-warning' : 'bg-danger') %> me-2">
+                                                    <%= endpoint.isCovered ? 'Covered' : (endpoint.isPartiallyCovered ? 'Partial' : 'Missing') %>
+                                                </span>
+                                                <span class="method me-2"><%= endpoint.method %></span>
+                                                <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                        <div class="accordion-body">
+                                            <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                            <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                            <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                            <% } %>
+                                            <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                <h6>Requests:</h6>
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Status Code</th>
+                                                            <th>Timestamp</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% endpoint.requests.forEach(request => { %>
+                                                            <tr>
+                                                                <td><%= request.statusCode %></td>
+                                                                <td><%= new Date(request.timestamp).toLocaleString() %></td>
+                                                            </tr>
+                                                        <% }) %>
+                                                    </tbody>
+                                                </table>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
         </div>
 
-        <div class="summary">
-            <h2>Summary</h2>
-            <p>
-                <span class="stat"><%= coverage.coveragePercentage.toFixed(2) %>%</span> coverage<br>
-                <span class="stat"><%= coverage.coveredEndpoints %></span> of <%= coverage.totalEndpoints %> endpoints covered
-            </p>
-        </div>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>
 
-        <div class="endpoints">
-            <h2>Endpoints</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Method</th>
-                        <th>Path</th>
-                        <th>Summary</th>
-                        <th>Status</th>
-                        <th>Requests</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% for (const [key, endpoint] of Object.entries(endpoints)) { %>
-                        <tr>
-                            <td><span class="method <%= endpoint.method %>"><%= endpoint.method %></span></td>
-                            <td><%= endpoint.path %></td>
-                            <td><%= endpoint.summary %></td>
-                            <td class="<%= endpoint.requests.length > 0 ? 'covered' : 'not-covered' %>">
-                                <%= endpoint.requests.length > 0 ? '✓ Covered' : '✗ Not Covered' %>
-                            </td>
-                            <td><%= endpoint.requests.length %></td>
-                        </tr>
-                    <% } %>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</body>
-</html> 
+<% function isPartiallyCovered(endpoint) { %>
+    <% if (!endpoint.requests?.length) return false; %>
+    <% 
+        const expectedStatusCodes = Object.keys(endpoint.responses || {});
+        const actualStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
+        return actualStatusCodes.size > 0 && expectedStatusCodes.some(code => !actualStatusCodes.has(code));
+    %>
+<% } %>

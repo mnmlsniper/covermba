@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { ApiCoverage, RequestCollector } from '../../../src/index.js';
+import { ApiCoverage } from '../../../src/index.js';
+import path from 'path';
+import fs from 'fs';
 
 let apiCoverage;
-let collector;
 
 test.beforeAll(async () => {
     apiCoverage = new ApiCoverage({
@@ -11,19 +12,18 @@ test.beforeAll(async () => {
         debug: false,
         outputDir: 'coverage-test',
         logLevel: 'debug',
-        logFile: 'coverage-test/coverage.log'
+        logFile: 'coverage-test/coverage.log',
+        generateHtmlReport: true
     });
 
-    collector = new RequestCollector();
     await apiCoverage.start();
 });
 
 test('should track API coverage with multiple requests', async ({ request }) => {
     // 1. Создаем новую сессию
     const challengerResponse = await request.post('https://apichallenges.herokuapp.com/challenger');
-    collector.collect({
+    apiCoverage.recordRequest({
         method: 'POST',
-        url: challengerResponse.url(),
         path: '/challenger',
         statusCode: challengerResponse.status()
     });
@@ -38,9 +38,8 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             'x-challenger': challengerId
         }
     });
-    collector.collect({
+    apiCoverage.recordRequest({
         method: 'GET',
-        url: challengesResponse.url(),
         path: '/challenges',
         statusCode: challengesResponse.status()
     });
@@ -49,7 +48,6 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     // 3. Получаем детали первой задачи
     const responseData = await challengesResponse.json();
     const challenges = responseData.challenges;
-    console.log('Challenges response:', responseData);
     
     // Проверяем, что у нас есть хотя бы одна задача
     expect(challenges.length).toBeGreaterThan(0);
@@ -60,49 +58,51 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             'x-challenger': challengerId
         }
     });
-    collector.collect({
+    apiCoverage.recordRequest({
         method: 'GET',
-        url: todosResponse.url(),
         path: '/todos',
         statusCode: todosResponse.status()
     });
     expect(todosResponse.status()).toBe(200);
 
-    // Записываем запросы в покрытие
-    const requests = collector.getRequests();
-    console.log('Collected requests:', requests);
-    
-    requests.forEach(request => {
-        apiCoverage.recordRequest({
-            method: request.method,
-            path: request.path,
-            statusCode: request.statusCode,
-            service: 'challenges'
-        });
-    });
+    // Останавливаем сбор данных
+    await apiCoverage.stop();
 
-    // Проверяем результаты
-    const coverage = await apiCoverage.stop();
+    // Генерируем отчет и получаем данные о покрытии
+    const coverage = await apiCoverage.generateReport();
     console.log('Coverage data:', JSON.stringify(coverage, null, 2));
     
     expect(coverage).toBeTruthy();
     expect(coverage.totalEndpoints).toBeGreaterThan(0);
     expect(coverage.coveredEndpoints).toBeGreaterThan(0);
-    expect(coverage.coveragePercentage).toBeGreaterThan(0);
+    expect(coverage.percentage).toBeGreaterThan(0);
 
     // Проверяем, что все наши запросы были зафиксированы
-    const allEndpoints = Object.keys(coverage.endpoints);
-    console.log('All endpoints:', allEndpoints);
-    
-    const coveredEndpoints = allEndpoints.filter(path => {
-        const endpoint = coverage.endpoints[path];
-        console.log(`Endpoint ${path}:`, endpoint);
-        return endpoint.requests && endpoint.requests.length > 0;
-    });
+    const coveredEndpoints = coverage.endpoints
+        .filter(endpoint => endpoint.requests && endpoint.requests.length > 0)
+        .map(endpoint => `${endpoint.method} ${endpoint.path}`);
     
     console.log('Covered endpoints:', coveredEndpoints);
     expect(coveredEndpoints.length).toBeGreaterThan(0);
     expect(coveredEndpoints).toContain('POST /challenger');
     expect(coveredEndpoints).toContain('GET /challenges');
     expect(coveredEndpoints).toContain('GET /todos');
+
+    // Verify coverage report
+    const coverageReport = await apiCoverage.generateReport();
+    expect(coverageReport.totalEndpoints).toBeGreaterThan(0);
+    expect(coverageReport.coveredEndpoints).toBeGreaterThan(0);
+    expect(coverageReport.percentage).toBeGreaterThan(0);
+    expect(coverageReport.endpoints).toBeDefined();
+    expect(coverageReport.endpoints.length).toBeGreaterThan(0);
+    expect(coverageReport.services).toBeDefined();
+    expect(Object.keys(coverageReport.services).length).toBeGreaterThan(0);
+
+    // Verify HTML report file
+    const reportPath = path.join(process.cwd(), 'coverage-test', 'coverage.html');
+    expect(fs.existsSync(reportPath)).toBe(true);
+    
+    const reportContent = fs.readFileSync(reportPath, 'utf8');
+    expect(reportContent).toContain('API Coverage Report');
+    expect(reportContent).toContain(`${coverageReport.percentage.toFixed(2)}%`);
 }); 

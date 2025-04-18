@@ -1,8 +1,10 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 import ejs from 'ejs';
+import { RequestCollector } from './RequestCollector.js';
+import { ReportGenerator } from './ReportGenerator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,15 +26,21 @@ export class ApiCoverage {
      * @param {string} [options.outputDir='coverage'] - Директория для сохранения отчетов
      * @param {string} [options.logLevel='info'] - Уровень логирования
      * @param {string} [options.logFile='coverage.log'] - Файл для сохранения логов
+     * @param {boolean} [options.generateHtmlReport=false] - Включить генерацию HTML отчета
      */
     constructor(options = {}) {
+        this.collector = new RequestCollector(options);
+        this.reportGenerator = new ReportGenerator(options);
+        this.swaggerSpec = options.swaggerSpec;
+        this.ignoreConfig = options.ignoreConfig || {};
         this.options = {
             swaggerPath: options.swaggerPath,
             baseUrl: options.baseUrl,
             debug: options.debug || false,
             outputDir: options.outputDir || 'coverage',
             logLevel: options.logLevel || 'info',
-            logFile: options.logFile || 'coverage.log'
+            logFile: options.logFile || 'coverage.log',
+            generateHtmlReport: options.generateHtmlReport || false
         };
         
         this.endpoints = {};
@@ -54,6 +62,7 @@ export class ApiCoverage {
 
         try {
             await this._loadSwaggerSpec();
+            await this.collector.start();
             this.isInitialized = true;
             this._log('info', 'API coverage started');
         } catch (error) {
@@ -74,12 +83,9 @@ export class ApiCoverage {
         }
 
         try {
-            const coverage = this._calculateCoverage();
-            await this._saveCoverage(coverage);
-            await this._generateHtmlReport(coverage);
+            await this.collector.stop();
             this.isInitialized = false;
             this._log('info', 'API coverage stopped');
-            return coverage;
         } catch (error) {
             this._log('error', `Failed to stop API coverage: ${error.message}`);
             throw error;
@@ -110,13 +116,14 @@ export class ApiCoverage {
                 }
                 content = await response.text();
             } else {
-                content = fs.readFileSync(swaggerPath, 'utf8');
+                content = await fs.readFile(swaggerPath, 'utf8');
             }
 
             const spec = swaggerPath.endsWith('.yaml') || swaggerPath.endsWith('.yml')
                 ? yaml.load(content)
                 : JSON.parse(content);
 
+            this.swaggerSpec = spec;
             this._processSwaggerSpec(spec);
             this._log('info', 'Swagger spec loaded successfully');
         } catch (error) {
@@ -172,58 +179,106 @@ export class ApiCoverage {
      * @param {Object} [request.body] - Тело запроса
      */
     recordRequest(request) {
-        if (!this.isInitialized) {
-            this._log('warn', 'API coverage is not initialized');
-            return;
-        }
-
-        const { method, path, statusCode, body, headers } = request;
-        const endpointKey = `${method.toUpperCase()} ${path}`;
-
-        const requestData = {
-            endpointKey,
+        const { method, path, statusCode } = request;
+        this.collector.recordRequest({
+            method: method.toUpperCase(),
+            path,
             statusCode,
-            timestamp: new Date().toISOString(),
-            body,
-            headers
-        };
-
-        this.requests.push(requestData);
-        
-        if (this.endpoints[endpointKey]) {
-            this.endpoints[endpointKey].requests.push(requestData);
-        }
-
-        this._log('debug', `Recorded request: ${endpointKey} (${statusCode})`);
+            timestamp: new Date().toISOString()
+        });
     }
 
-    _calculateCoverage() {
-        const totalEndpoints = Object.keys(this.endpoints).length;
-        const coveredEndpoints = Object.values(this.endpoints)
-            .filter(endpoint => endpoint.requests.length > 0)
-            .length;
-        const coveragePercentage = (coveredEndpoints / totalEndpoints) * 100;
+    _calculateCoverage(requests) {
+        const endpoints = {};
+        
+        // Add endpoints from Swagger first
+        if (this.swaggerSpec?.paths) {
+            Object.entries(this.swaggerSpec.paths).forEach(([path, methods]) => {
+                Object.entries(methods).forEach(([method, spec]) => {
+                    if (['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(method.toLowerCase())) {
+                        const endpointKey = `${method.toUpperCase()} ${path}`;
+                        endpoints[endpointKey] = {
+                            path,
+                            method: method.toUpperCase(),
+                            requests: [],
+                            summary: spec.summary,
+                            description: spec.description,
+                            tags: spec.tags,
+                            responses: spec.responses,
+                            expectedStatusCodes: Object.keys(spec.responses).map(code => parseInt(code, 10))
+                        };
+                    }
+                });
+            });
+        }
+
+        // Add requests to corresponding endpoints
+        requests.forEach(request => {
+            const endpointKey = `${request.method} ${request.path}`;
+            if (endpoints[endpointKey]) {
+                endpoints[endpointKey].requests.push(request);
+            }
+        });
+
+        // Calculate coverage statistics
+        const totalEndpoints = Object.keys(endpoints).length;
+        let coveredEndpoints = 0;
+        let partialEndpoints = 0;
+
+        Object.values(endpoints).forEach(endpoint => {
+            if (endpoint.requests.length === 0) {
+                return; // Uncovered endpoint
+            }
+
+            const coveredStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
+            const expectedStatusCodes = new Set(endpoint.expectedStatusCodes);
+
+            const coverageRatio = Array.from(coveredStatusCodes).filter(code => expectedStatusCodes.has(code)).length / expectedStatusCodes.size;
+
+            if (coverageRatio === 1) {
+                coveredEndpoints++;
+            } else if (coverageRatio > 0) {
+                partialEndpoints++;
+            }
+        });
+
+        const coveragePercentage = totalEndpoints > 0 ? ((coveredEndpoints + partialEndpoints * 0.5) / totalEndpoints) * 100 : 0;
+
+        // Group endpoints by service (using tags or path segments)
+        const services = {};
+        Object.entries(endpoints).forEach(([key, endpoint]) => {
+            const serviceName = endpoint.tags?.[0] || endpoint.path.split('/')[1] || 'default';
+            if (!services[serviceName]) {
+                services[serviceName] = {
+                    name: serviceName,
+                    endpoints: {}
+                };
+            }
+            services[serviceName].endpoints[key] = endpoint;
+        });
 
         return {
             totalEndpoints,
             coveredEndpoints,
-            coveragePercentage,
-            endpoints: this.endpoints,
-            requests: this.requests
+            partialEndpoints,
+            percentage: coveragePercentage,
+            endpoints: Object.values(endpoints),
+            services
         };
     }
 
     async _saveCoverage(coverage) {
         const { outputDir } = this.options;
         
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
+        try {
+            await fs.mkdir(outputDir, { recursive: true });
+            const coveragePath = path.join(outputDir, 'coverage.json');
+            await fs.writeFile(coveragePath, JSON.stringify(coverage, null, 2));
+            this._log('info', `Coverage saved to ${coveragePath}`);
+        } catch (error) {
+            this._log('error', `Error saving coverage: ${error.message}`);
+            throw error;
         }
-
-        const coveragePath = path.join(outputDir, 'coverage.json');
-        fs.writeFileSync(coveragePath, JSON.stringify(coverage, null, 2));
-        
-        this._log('info', `Coverage saved to ${coveragePath}`);
     }
 
     /**
@@ -240,14 +295,36 @@ export class ApiCoverage {
         }
 
         const outputDir = this.options.outputDir;
-        const templatePath = new URL('./templates/report.ejs', import.meta.url);
+        const templatePath = new URL('./templates/report.ejs', import.meta.url).pathname;
         
         try {
+            // Логируем структуру данных для отладки
+            this._log('debug', 'Coverage data structure:');
+            this._log('debug', JSON.stringify(coverage, null, 2));
+
             const template = await fs.readFile(templatePath, 'utf8');
             const html = ejs.render(template, { 
                 coverage,
-                endpoints: this.endpoints,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                totalEndpoints: coverage.totalEndpoints,
+                coveredEndpoints: coverage.coveredEndpoints,
+                partialEndpoints: coverage.partialEndpoints,
+                missingEndpoints: coverage.totalEndpoints - coverage.coveredEndpoints - coverage.partialEndpoints,
+                services: coverage.services,
+                isPartiallyCovered: (endpoint) => {
+                    if (!endpoint.requests || endpoint.requests.length === 0) {
+                        return false;
+                    }
+                    const coveredStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
+                    const expectedStatusCodes = new Set(endpoint.expectedStatusCodes);
+                    const coverageRatio = Array.from(coveredStatusCodes).filter(code => expectedStatusCodes.has(code)).length / expectedStatusCodes.size;
+                    return coverageRatio > 0 && coverageRatio < 1;
+                },
+                getProgressBarColor: (percentage) => {
+                    if (percentage >= 80) return '#28a745';
+                    if (percentage >= 50) return '#ffc107';
+                    return '#dc3545';
+                }
             });
             
             const reportPath = path.join(outputDir, 'coverage.html');
@@ -268,7 +345,7 @@ export class ApiCoverage {
      * @param {string} level - Уровень логирования
      * @param {string} message - Сообщение для логирования
      */
-    _log(level, message) {
+    async _log(level, message) {
         const { debug, logLevel, logFile } = this.options;
         
         if (debug || level === 'error') {
@@ -276,8 +353,29 @@ export class ApiCoverage {
         }
 
         if (logFile) {
-            const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`;
-            fs.appendFileSync(logFile, logMessage);
+            try {
+                const logDir = path.dirname(logFile);
+                await fs.mkdir(logDir, { recursive: true });
+                const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`;
+                await fs.appendFile(logFile, logMessage);
+            } catch (error) {
+                console.error(`Error writing to log file: ${error.message}`);
+            }
         }
+    }
+
+    async generateReport() {
+        const requests = this.collector.getRequests();
+        const coverage = this._calculateCoverage(requests);
+        
+        // Save coverage data
+        await this._saveCoverage(coverage);
+        
+        // Generate HTML report
+        if (this.options.generateHtmlReport) {
+            await this._generateHtmlReport(coverage);
+        }
+        
+        return coverage;
     }
 } 
