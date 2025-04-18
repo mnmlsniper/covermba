@@ -227,6 +227,8 @@ export class ApiCoverage {
 
         Object.values(endpoints).forEach(endpoint => {
             if (endpoint.requests.length === 0) {
+                endpoint.isCovered = false;
+                endpoint.isPartiallyCovered = false;
                 return; // Uncovered endpoint
             }
 
@@ -236,9 +238,16 @@ export class ApiCoverage {
             const coverageRatio = Array.from(coveredStatusCodes).filter(code => expectedStatusCodes.has(code)).length / expectedStatusCodes.size;
 
             if (coverageRatio === 1) {
+                endpoint.isCovered = true;
+                endpoint.isPartiallyCovered = false;
                 coveredEndpoints++;
             } else if (coverageRatio > 0) {
+                endpoint.isCovered = false;
+                endpoint.isPartiallyCovered = true;
                 partialEndpoints++;
+            } else {
+                endpoint.isCovered = false;
+                endpoint.isPartiallyCovered = false;
             }
         });
 
@@ -261,6 +270,7 @@ export class ApiCoverage {
             totalEndpoints,
             coveredEndpoints,
             partialEndpoints,
+            missingEndpoints: totalEndpoints - coveredEndpoints - partialEndpoints,
             percentage: coveragePercentage,
             endpoints: Object.values(endpoints),
             services
@@ -309,7 +319,7 @@ export class ApiCoverage {
                 totalEndpoints: coverage.totalEndpoints,
                 coveredEndpoints: coverage.coveredEndpoints,
                 partialEndpoints: coverage.partialEndpoints,
-                missingEndpoints: coverage.totalEndpoints - coverage.coveredEndpoints - coverage.partialEndpoints,
+                missingEndpoints: coverage.missingEndpoints,
                 services: coverage.services,
                 isPartiallyCovered: (endpoint) => {
                     if (!endpoint.requests || endpoint.requests.length === 0) {

@@ -20,7 +20,7 @@
                     <h5 class="card-title">Coverage Summary</h5>
                     <div class="progress mb-3" style="height: 30px;">
                         <div class="progress-bar" role="progressbar" 
-                             style="width: <%= coverage.percentage %>%" 
+                             style="width: <%= coverage.percentage %>%;" 
                              aria-valuenow="<%= coverage.percentage %>" 
                              aria-valuemin="0" 
                              aria-valuemax="100">
@@ -32,7 +32,7 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="card-subtitle mb-2 text-muted">Total Endpoints</h6>
-                                    <p class="card-text"><%= coverage.total %></p>
+                                    <p class="card-text"><%= coverage.totalEndpoints %></p>
                                 </div>
                             </div>
                         </div>
@@ -40,7 +40,7 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="card-subtitle mb-2 text-muted">Covered</h6>
-                                    <p class="card-text"><%= coverage.covered %></p>
+                                    <p class="card-text"><%= coverage.coveredEndpoints %></p>
                                 </div>
                             </div>
                         </div>
@@ -48,7 +48,7 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="card-subtitle mb-2 text-muted">Partial</h6>
-                                    <p class="card-text"><%= coverage.partial %></p>
+                                    <p class="card-text"><%= coverage.partialEndpoints %></p>
                                 </div>
                             </div>
                         </div>
@@ -56,7 +56,7 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="card-subtitle mb-2 text-muted">Missing</h6>
-                                    <p class="card-text"><%= coverage.missing %></p>
+                                    <p class="card-text"><%= coverage.missingEndpoints %></p>
                                 </div>
                             </div>
                         </div>
@@ -128,6 +128,146 @@
                                         </div>
                                     </div>
                                 </div>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="missing" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-missing-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (!endpoint.isCovered && !endpoint.isPartiallyCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-missing-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-missing-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-danger me-2">Missing</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-missing-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="partial" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-partial-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (endpoint.isPartiallyCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-partial-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-partial-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-warning me-2">Partial</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-partial-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+                                                <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                    <h6>Requests:</h6>
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Status Code</th>
+                                                                <th>Timestamp</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <% endpoint.requests.forEach(request => { %>
+                                                                <tr>
+                                                                    <td><%= request.statusCode %></td>
+                                                                    <td><%= new Date(request.timestamp).toLocaleString() %></td>
+                                                                </tr>
+                                                            <% }) %>
+                                                        </tbody>
+                                                    </table>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="covered" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-covered-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (endpoint.isCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-covered-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-covered-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-success me-2">Covered</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-covered-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+                                                <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                    <h6>Requests:</h6>
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Status Code</th>
+                                                                <th>Timestamp</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <% endpoint.requests.forEach(request => { %>
+                                                                <tr>
+                                                                    <td><%= request.statusCode %></td>
+                                                                    <td><%= new Date(request.timestamp).toLocaleString() %></td>
+                                                                </tr>
+                                                            <% }) %>
+                                                        </tbody>
+                                                    </table>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
                             <% }) %>
                         </div>
                     <% }) %>

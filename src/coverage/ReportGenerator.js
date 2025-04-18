@@ -20,10 +20,10 @@ export class ReportGenerator {
 
     _processCoverageData(coverage) {
         const services = {};
-        const endpoints = coverage?.endpoints?.endpoints || {};
+        const endpoints = coverage?.endpoints || [];
 
         // Process endpoints by service
-        Object.entries(endpoints).forEach(([key, endpoint]) => {
+        endpoints.forEach(endpoint => {
             const serviceName = (endpoint.tags?.[0] || 'default').toLowerCase();
             if (!services[serviceName]) {
                 services[serviceName] = {
@@ -31,13 +31,22 @@ export class ReportGenerator {
                     endpoints: {}
                 };
             }
-            services[serviceName].endpoints[key] = endpoint;
+
+            // Use the coverage status calculated in ApiCoverage
+            const endpointKey = `${endpoint.method} ${endpoint.path}`;
+            services[serviceName].endpoints[endpointKey] = {
+                ...endpoint,
+                isCovered: endpoint.isCovered,
+                isPartiallyCovered: endpoint.isPartiallyCovered
+            };
         });
 
         return {
             totalEndpoints: coverage?.totalEndpoints || 0,
             coveredEndpoints: coverage?.coveredEndpoints || 0,
-            coveragePercentage: coverage?.coveragePercentage || 0,
+            partialEndpoints: coverage?.partialEndpoints || 0,
+            missingEndpoints: coverage?.missingEndpoints || 0,
+            percentage: coverage?.percentage || 0,
             services
         };
     }
