@@ -1,51 +1,82 @@
-# API Coverage
+# Cover MBA
 
-Библиотека для отслеживания покрытия API тестами на основе Swagger/OpenAPI спецификации.
+Библиотека для отслеживания покрытия API тестами с использованием Playwright. Помогает убедиться, что все эндпоинты API правильно протестированы путем сравнения реальных запросов со спецификацией Swagger/OpenAPI.
+
+## Возможности
+
+- Отслеживание API запросов во время тестов
+- Сравнение запросов со спецификацией Swagger/OpenAPI
+- Генерация детальных отчетов о покрытии
+- Поддержка множественных статус-кодов для каждого эндпоинта
+- Простая интеграция с тестами Playwright
 
 ## Установка
 
 ```bash
-npm install api-coverage
+npm install cover-mba --save-dev
 ```
 
 ## Использование
 
+1. Импортируйте библиотеку в тестовый файл:
+
 ```javascript
-import { ApiCoverage } from 'api-coverage';
+import { ApiCoverage } from 'cover-mba';
+import { RequestCollector } from 'cover-mba';
+```
 
+2. Инициализируйте трекер покрытия:
+
+```javascript
 const apiCoverage = new ApiCoverage({
-    swaggerPath: 'path/to/swagger.json',
-    baseUrl: 'https://api.example.com',
-    debug: true,
-    outputDir: 'coverage'
+  swaggerPath: 'путь/к/вашему/swagger.json',
+  baseUrl: 'https://ваш-api.com',
+  debug: true,
+  outputDir: 'coverage'
+});
+```
+
+3. Используйте RequestCollector для отслеживания запросов:
+
+```javascript
+const collector = new RequestCollector();
+
+// В вашем тесте
+page.on('request', request => {
+  const url = new URL(request.url());
+  if (url.origin === 'https://ваш-api.com') {
+    collector.collect(request);
+  }
+});
+```
+
+4. Записывайте запросы и генерируйте отчет:
+
+```javascript
+// После выполнения запросов
+const requests = collector.getRequests();
+requests.forEach(request => {
+  apiCoverage.recordRequest({
+    method: request.method,
+    path: request.path,
+    statusCode: request.statusCode
+  });
 });
 
-// Запуск отслеживания
-await apiCoverage.start();
-
-// Запись запроса
-apiCoverage.recordRequest({
-    method: 'GET',
-    path: '/api/v1/users',
-    statusCode: 200
-});
-
-// Остановка и получение отчета
+// Генерация отчета
 const coverage = await apiCoverage.stop();
 ```
 
-## Конфигурация
+## Формат отчета
 
-- `swaggerPath` - путь к Swagger/OpenAPI спецификации
-- `baseUrl` - базовый URL API
-- `debug` - включить отладочный режим
-- `outputDir` - директория для сохранения отчетов
-
-## Тестирование
-
-```bash
-npm test
-```
+Сгенерированный отчет включает:
+- Общее количество эндпоинтов
+- Количество покрытых эндпоинтов
+- Процент покрытия
+- Детальную информацию по каждому эндпоинту:
+  - Покрытие статус-кодов
+  - Отсутствующие статус-коды
+  - Неожиданные статус-коды
 
 ## Лицензия
 

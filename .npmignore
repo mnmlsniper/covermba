@@ -1,20 +1,33 @@
-# Исходные файлы и тесты
-src/__tests__
-demo/
+# Тесты
+src/__tests__/
 tests/
+
+# Покрытие
+coverage/
+coverage-test/
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Документация
+*.md
+!README.md
 
 # Конфигурационные файлы
 .eslintrc
-.gitignore
-.npmignore
-jest.config.js
+.prettierrc
 playwright.config.js
 
-# Документация
-README.md
-LICENSE
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Временные файлы
-coverage/
-*.log
 node_modules/ 

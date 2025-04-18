@@ -1,7 +1,7 @@
 {
   "name": "cover-mba",
   "version": "0.1.0",
-  "description": "API coverage tracking library for automated testing",
+  "description": "API coverage tracking library for automated testing with Playwright. Helps ensure your API endpoints are properly tested by comparing actual requests against Swagger/OpenAPI specification.",
   "type": "module",
   "main": "src/index.js",
   "files": [
@@ -18,7 +18,8 @@
     "coverage",
     "testing",
     "swagger",
-    "openapi"
+    "openapi",
+    "playwright"
   ],
   "author": "Sniper <sniper@example.com>",
   "contributors": [
