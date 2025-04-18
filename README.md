@@ -35,7 +35,7 @@ const requests = collector.getRequests();
 Анализатор покрытия API. Сравнивает реальные запросы с ожидаемыми из Swagger спецификации.
 
 ```javascript
-import { ApiCoverage } from './src/index.js';
+import { ApiCoverage } from './src/coverage/ApiCoverage.js';
 
 const apiCoverage = new ApiCoverage({
   swaggerPath: 'path/to/swagger.yaml',
@@ -63,65 +63,80 @@ await apiCoverage.stop();
 
 ## Интеграция с Playwright
 
-### Использование в сервисах
+### Базовый пример использования
 ```javascript
+import { test, expect } from '@playwright/test';
+import { ApiCoverage } from './src/coverage/ApiCoverage.js';
 import { RequestCollector } from './src/collector/RequestCollector.js';
 
-export class ApiService {
-  constructor(request) {
-    this.collector = new RequestCollector();
-    this.request = this.collector.collect(request);
-  }
+test.describe('API Coverage Tests', () => {
+    let apiCoverage;
+    let collector;
 
-  async makeRequest() {
-    const response = await this.request.post('/api/endpoint', {
-      data: { key: 'value' }
-    });
-    return response;
-  }
+    test.beforeAll(async () => {
+        // Инициализируем API coverage
+        apiCoverage = new ApiCoverage({
+            swaggerPath: 'https://petstore.swagger.io/v2/swagger.json',
+            baseUrl: 'https://petstore.swagger.io/v2',
+            debug: true,
+            outputDir: 'coverage-test'
+        });
 
-  getCollectedRequests() {
-    return this.collector.getRequests();
-  }
-}
-```
+        // Инициализируем сборщик запросов
+        collector = new RequestCollector();
 
-### Использование в тестах
-```javascript
-import { test } from '@playwright/test';
-import { ApiCoverage } from './src/index.js';
-import { ApiService } from './services/api.service.js';
-
-test.describe('API Tests', () => {
-  let apiCoverage;
-
-  test.beforeAll(async () => {
-    apiCoverage = new ApiCoverage({
-      swaggerPath: 'path/to/swagger.yaml',
-      baseUrl: 'https://api.example.com',
-      debug: true,
-      outputDir: 'coverage'
-    });
-    await apiCoverage.start();
-  });
-
-  test.afterAll(async () => {
-    await apiCoverage.stop();
-  });
-
-  test('test case', async ({ request }) => {
-    const apiService = new ApiService(request);
-    const response = await apiService.makeRequest();
-
-    // Запись запросов для анализа покрытия
-    const requests = apiService.getCollectedRequests();
-    requests.forEach(req => {
-      apiCoverage.recordRequest(req);
+        // Запускаем отслеживание
+        await apiCoverage.start();
     });
 
-    // Проверки
-    expect(response.status()).toBe(200);
-  });
+    test.afterAll(async () => {
+        // Останавливаем отслеживание и получаем отчет
+        await apiCoverage.stop();
+    });
+
+    test('should track API coverage in basic test scenario', async ({ page }) => {
+        try {
+            // Перехватываем запросы
+            page.on('request', request => {
+                const url = new URL(request.url());
+                if (url.origin === 'https://petstore.swagger.io') {
+                    collector.collect(request);
+                }
+            });
+
+            page.on('response', response => {
+                const url = new URL(response.url());
+                if (url.origin === 'https://petstore.swagger.io') {
+                    const request = response.request();
+                    collector.collect(request);
+                }
+            });
+
+            // Выполняем тестовые запросы
+            await page.goto('https://petstore.swagger.io/v2/pet/1');
+            await expect(page).toHaveTitle('Swagger UI');
+
+            // Записываем запросы в покрытие
+            const requests = collector.getRequests();
+            requests.forEach(request => {
+                apiCoverage.recordRequest({
+                    method: request.method(),
+                    path: new URL(request.url()).pathname,
+                    statusCode: request.response()?.status() || 200
+                });
+            });
+
+            // Проверяем результаты
+            const coverage = await apiCoverage.getCoverage();
+            expect(coverage).toBeTruthy();
+            expect(coverage.totalEndpoints).toBeGreaterThan(0);
+            expect(coverage.coveredEndpoints).toBeGreaterThan(0);
+            expect(coverage.coveragePercentage).toBeGreaterThan(0);
+
+        } catch (error) {
+            throw new Error(`Test failed: ${error.message}`);
+        }
+    });
 });
 ```
 
@@ -154,15 +169,15 @@ test.describe('API Tests', () => {
 
 ### Структура проекта
 ```
-demo/
-├── src/
-│   ├── collector/
-│   │   └── RequestCollector.js    # Сборщик запросов
-│   ├── coverage/
-│   │   └── ApiCoverage.js         # Анализатор покрытия
-│   └── index.js                   # Точка входа
-├── package.json
-└── README.md
+src/
+├── collector/
+│   └── RequestCollector.js    # Сборщик запросов
+├── coverage/
+│   └── ApiCoverage.js         # Анализатор покрытия
+├── __tests__/
+│   ├── api.test.js            # Базовые тесты
+│   └── api-coverage.spec.js   # Тесты с Playwright
+└── index.js                   # Точка входа
 ```
 
 ### Установка зависимостей
@@ -172,7 +187,11 @@ npm install
 
 ### Запуск тестов
 ```bash
+# Запуск всех тестов
 npm test
+
+# Запуск тестов с Playwright
+npx playwright test src/__tests__/api-coverage.spec.js
 ```
 
 ## API
@@ -197,19 +216,7 @@ new ApiCoverage(options)
 - `start()` - инициализация покрытия
 - `stop()` - завершение работы и сохранение результатов
 - `recordRequest(request)` - запись запроса в покрытие
-
-### TestReporter
-
-Декоратор для перехвата и логирования HTTP-запросов в тестах.
-
-#### Использование
-```javascript
-import { withTestReporter } from 'api-coverage';
-
-test('your test', withTestReporter(async ({ request }) => {
-    // Ваш тест
-}));
-```
+- `getCoverage()` - получение текущей статистики покрытия
 
 ## Отладка
 
