@@ -1,53 +1,35 @@
 {
   "name": "cover-mba",
-  "version": "0.1.0",
-  "description": "API coverage tracking library for automated testing with Playwright. Helps ensure your API endpoints are properly tested by comparing actual requests against Swagger/OpenAPI specification.",
+  "version": "0.2.0",
+  "description": "Библиотека для отслеживания покрытия API тестами с использованием Playwright",
   "type": "module",
   "main": "src/index.js",
-  "files": [
-    "src/**/*.js"
-  ],
   "scripts": {
-    "test": "playwright test",
-    "test:watch": "playwright test --watch",
-    "test:coverage": "playwright test --reporter=html",
-    "prepare": "npm run test"
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint src/**/*.js tests/**/*.js",
+    "format": "prettier --write src/**/*.js tests/**/*.js"
   },
   "keywords": [
     "api",
     "coverage",
     "testing",
+    "playwright",
     "swagger",
-    "openapi",
-    "playwright"
+    "openapi"
   ],
-  "author": "Sniper <sniper@example.com>",
-  "contributors": [
-    "AI Assistant"
-  ],
+  "author": "",
   "license": "MIT",
-  "devDependencies": {
-    "@playwright/test": "^1.52.0",
-    "c8": "^9.1.0",
-    "eslint": "^8.56.0",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-promise": "^6.6.0",
-    "swagger-parser": "^10.0.3"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sniper/api-coverage.git"
-  },
-  "bugs": {
-    "url": "https://github.com/sniper/api-coverage/issues"
-  },
-  "homepage": "https://github.com/sniper/api-coverage#readme",
   "dependencies": {
-    "ejs": "^3.1.9"
-  }
+    "axios": "^1.6.7",
+    "ejs": "^3.1.10",
+    "swagger-parser": "^11.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.5"
+  },
+  "files": [
+    "src/**/*.js",
+    "src/**/*.ejs"
+  ]
 }

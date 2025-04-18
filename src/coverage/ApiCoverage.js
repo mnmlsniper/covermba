@@ -235,11 +235,15 @@ export class ApiCoverage {
      * @throws {Error} Если не удалось сгенерировать отчет
      */
     async _generateHtmlReport(coverage) {
+        if (!this.options.generateHtmlReport) {
+            return;
+        }
+
         const outputDir = this.options.outputDir;
-        const templatePath = path.join(__dirname, 'templates', 'report.ejs');
+        const templatePath = new URL('./templates/report.ejs', import.meta.url);
         
         try {
-            const template = fs.readFileSync(templatePath, 'utf8');
+            const template = await fs.readFile(templatePath, 'utf8');
             const html = ejs.render(template, { 
                 coverage,
                 endpoints: this.endpoints,
@@ -247,7 +251,7 @@ export class ApiCoverage {
             });
             
             const reportPath = path.join(outputDir, 'coverage.html');
-            fs.writeFileSync(reportPath, html);
+            await fs.writeFile(reportPath, html);
             
             this._log('info', `HTML report generated at: ${reportPath}`);
         } catch (error) {

@@ -1,82 +1,156 @@
 # Cover MBA
 
-Библиотека для отслеживания покрытия API тестами с использованием Playwright. Помогает убедиться, что все эндпоинты API правильно протестированы путем сравнения реальных запросов со спецификацией Swagger/OpenAPI.
+Библиотека для отслеживания покрытия API тестами с использованием Playwright.
 
 ## Возможности
 
-- Отслеживание API запросов во время тестов
-- Сравнение запросов со спецификацией Swagger/OpenAPI
-- Генерация детальных отчетов о покрытии
-- Поддержка множественных статус-кодов для каждого эндпоинта
-- Простая интеграция с тестами Playwright
+- Автоматическое определение эндпоинтов из Swagger/OpenAPI спецификации
+- Отслеживание запросов в реальном времени
+- Генерация отчетов о покрытии
+- Поддержка различных форматов спецификаций
+- Интеграция с Playwright
 
 ## Установка
 
 ```bash
-npm install cover-mba --save-dev
+npm install cover-mba
 ```
 
 ## Использование
 
-1. Импортируйте библиотеку в тестовый файл:
+### Базовый пример
 
 ```javascript
-import { ApiCoverage } from 'cover-mba';
-import { RequestCollector } from 'cover-mba';
-```
+import { ApiCoverage, RequestCollector } from 'cover-mba';
 
-2. Инициализируйте трекер покрытия:
-
-```javascript
 const apiCoverage = new ApiCoverage({
-  swaggerPath: 'путь/к/вашему/swagger.json',
-  baseUrl: 'https://ваш-api.com',
-  debug: true,
-  outputDir: 'coverage'
+    swaggerPath: 'path/to/swagger.json',
+    baseUrl: 'https://api.example.com',
+    debug: true,
+    outputDir: 'coverage'
 });
-```
 
-3. Используйте RequestCollector для отслеживания запросов:
-
-```javascript
 const collector = new RequestCollector();
 
-// В вашем тесте
-page.on('request', request => {
-  const url = new URL(request.url());
-  if (url.origin === 'https://ваш-api.com') {
-    collector.collect(request);
-  }
+// Запуск отслеживания
+await apiCoverage.start();
+
+// Сбор запросов
+const request = collector.collect({
+    method: 'GET',
+    url: 'https://api.example.com/users',
+    path: '/users',
+    statusCode: 200
 });
-```
 
-4. Записывайте запросы и генерируйте отчет:
-
-```javascript
-// После выполнения запросов
-const requests = collector.getRequests();
-requests.forEach(request => {
-  apiCoverage.recordRequest({
+// Запись запроса в покрытие
+apiCoverage.recordRequest({
     method: request.method,
     path: request.path,
-    statusCode: request.statusCode
-  });
+    statusCode: request.statusCode,
+    service: 'users'
 });
 
-// Генерация отчета
+// Остановка и получение результатов
 const coverage = await apiCoverage.stop();
+console.log(coverage);
+```
+
+### Пример с Playwright
+
+```javascript
+import { test, expect } from '@playwright/test';
+import { ApiCoverage, RequestCollector } from 'cover-mba';
+
+test.describe('API Coverage Tests', () => {
+    let apiCoverage;
+    let collector;
+
+    test.beforeAll(async () => {
+        apiCoverage = new ApiCoverage({
+            swaggerPath: 'https://apichallenges.herokuapp.com/docs/swagger',
+            baseUrl: 'https://apichallenges.herokuapp.com',
+            debug: false,
+            outputDir: 'coverage-test',
+            logLevel: 'debug',
+            logFile: 'coverage-test/coverage.log'
+        });
+
+        collector = new RequestCollector();
+        await apiCoverage.start();
+    });
+
+    test('should track API coverage', async ({ request }) => {
+        try {
+            // 1. Создаем новую сессию
+            const challengerResponse = await collector.collect(
+                request.post('https://apichallenges.herokuapp.com/challenger')
+            );
+            expect(challengerResponse.status()).toBe(201);
+            
+            const challengerId = challengerResponse.headers()['x-challenger'];
+            expect(challengerId).toBeDefined();
+
+            // 2. Получаем список задач
+            const challengesResponse = await collector.collect(
+                request.get('https://apichallenges.herokuapp.com/challenges', {
+                    headers: {
+                        'x-challenger': challengerId
+                    }
+                })
+            );
+            expect(challengesResponse.status()).toBe(200);
+
+            // Записываем запросы в покрытие
+            const requests = collector.getRequests();
+            requests.forEach(request => {
+                apiCoverage.recordRequest({
+                    method: request.method,
+                    path: request.path,
+                    statusCode: request.statusCode,
+                    service: 'challenges'
+                });
+            });
+
+            // Проверяем результаты
+            const coverage = await apiCoverage.stop();
+            
+            expect(coverage).toBeTruthy();
+            expect(coverage.totalEndpoints).toBeGreaterThan(0);
+            expect(coverage.coveredEndpoints).toBeGreaterThan(0);
+            expect(coverage.coveragePercentage).toBeGreaterThan(0);
+
+        } catch (error) {
+            throw new Error(`Test failed: ${error.message}`);
+        }
+    });
+});
 ```
 
 ## Формат отчета
 
-Сгенерированный отчет включает:
-- Общее количество эндпоинтов
-- Количество покрытых эндпоинтов
-- Процент покрытия
-- Детальную информацию по каждому эндпоинту:
-  - Покрытие статус-кодов
-  - Отсутствующие статус-коды
-  - Неожиданные статус-коды
+Отчет о покрытии содержит следующую информацию:
+
+```javascript
+{
+    totalEndpoints: number,      // Общее количество эндпоинтов
+    coveredEndpoints: number,    // Количество покрытых эндпоинтов
+    coveragePercentage: number,  // Процент покрытия
+    endpoints: [                 // Детальная информация по каждому эндпоинту
+        {
+            path: string,        // Путь эндпоинта
+            method: string,      // HTTP метод
+            covered: boolean,    // Покрыт ли тестами
+            lastRequested: string // Время последнего запроса
+        }
+    ]
+}
+```
+
+## Требования
+
+- Node.js >= 16
+- Playwright >= 1.52.0
 
 ## Лицензия
 
@@ -159,8 +233,10 @@ test.describe('API Coverage Tests', () => {
         apiCoverage = new ApiCoverage({
             swaggerPath: 'https://petstore.swagger.io/v2/swagger.json',
             baseUrl: 'https://petstore.swagger.io/v2',
-            debug: true,
-            outputDir: 'coverage-test'
+            debug: false,
+            outputDir: 'coverage-test',
+            logLevel: 'debug',
+            logFile: 'coverage-test/coverage.log'
         });
 
         // Инициализируем сборщик запросов
