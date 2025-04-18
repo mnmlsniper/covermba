@@ -1,0 +1,7 @@
+node_modules
+playwright-report
+coverage-test
+test-results
+tests/.DS_Store
+.DS_Store
+coverage.log

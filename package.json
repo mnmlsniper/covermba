@@ -1,0 +1,44 @@
+{
+  "name": "covermba",
+  "version": "0.0.1",
+  "description": "Library for tracking API test coverage based on Swagger/OpenAPI specification",
+  "main": "src/coverage/ApiCoverage.js",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test tests/api-coverage.test.js",
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/unit",
+    "test:all": "npm run test && npm run test:unit"
+  },
+  "keywords": [
+    "api",
+    "coverage",
+    "swagger",
+    "openapi",
+    "testing",
+    "playwright"
+  ],
+  "author": "mnmlsniper",
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "ejs": "^3.1.9"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.1",
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.0.0"
+  },
+  "files": [
+    "src/coverage/ApiCoverage.js",
+    "src/coverage/TestReporter.js",
+    "src/coverage/config.js",
+    "src/coverage/templates/report.ejs"
+  ],
+  "jest": {
+    "transform": {},
+    "testEnvironment": "node",
+    "extensionsToTreatAsEsm": [".js"]
+  }
+}
