@@ -38,7 +38,7 @@ test.describe('RealWorld API Coverage', () => {
 			swaggerPath: path.join(__dirname, 'swagger.json'),
 			baseUrl: 'https://realworld.qa.guru',
 			basePath: '/api',
-			outputDir: './coverage/realworld',
+			outputDir: './coverage/realworldClass',
 			title: 'RealWorld API Coverage Report',
 			debug: false,
 			generateHtmlReport: true
@@ -54,6 +54,9 @@ test.describe('RealWorld API Coverage', () => {
 		const usersService = new UsersService(request);
 		const response = await usersService.login('eve.holt@reqres.in', 'cityslicka');
 		expect(response.status()).toBe(404);
+		
+		// Генерируем отчет явно
+		await apiCoverage.generateReport();
 	});
 }); 
 

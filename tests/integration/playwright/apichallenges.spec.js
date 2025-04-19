@@ -13,7 +13,7 @@ test.beforeAll(async () => {
         swaggerPath: 'https://apichallenges.herokuapp.com/docs/swagger',
         baseUrl: 'https://apichallenges.herokuapp.com',
         debug: false,  // Включаем отладку
-        outputDir: 'coverage-test',
+        outputDir: './coverage/apichallenges',
         generateHtmlReport: true
     });
 
@@ -101,7 +101,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     expect(Object.keys(coverageReport.services).length).toBeGreaterThan(0);
 
     // Verify HTML report file
-    const reportPath = path.join(process.cwd(), 'coverage-test', 'coverage.html');
+    const reportPath = path.join(process.cwd(), 'coverage', 'apichallenges', 'coverage.html');
     expect(fs.existsSync(reportPath)).toBe(true);
     
     const reportContent = fs.readFileSync(reportPath, 'utf8');

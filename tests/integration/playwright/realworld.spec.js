@@ -44,4 +44,7 @@ test('should track API coverage with login request', async ({ request }) => {
     expect(responseData.user.username).toBeDefined();
     expect(responseData.user.bio).toBeDefined();
     expect(responseData.user.image).toBeDefined();
+    
+    // Генерируем отчет явно
+    await apiCoverage.generateReport();
 }); 

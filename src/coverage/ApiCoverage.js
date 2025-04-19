@@ -122,6 +122,13 @@ export class ApiCoverage {
         }
 
         try {
+            // Генерируем отчет перед остановкой
+            if (this.options.generateHtmlReport) {
+                const coverage = this._calculateCoverage();
+                await this._saveCoverage(coverage);
+                await this._generateHtmlReport(coverage);
+            }
+            
             await this.collector.stop();
             this.isInitialized = false;
             this._log('info', 'API coverage stopped');
@@ -267,15 +274,19 @@ export class ApiCoverage {
     }
 
     async _saveCoverage(coverage) {
-        const { outputDir } = this.options;
+        const outputDir = this.options.outputDir;
+        const coveragePath = path.join(outputDir, 'coverage.json');
         
         try {
+            // Создаем директорию, если она не существует
             await fs.mkdir(outputDir, { recursive: true });
-            const coveragePath = path.join(outputDir, 'coverage.json');
+            this._log('info', `Created directory: ${outputDir}`);
+            
+            // Сохраняем данные о покрытии
             await fs.writeFile(coveragePath, JSON.stringify(coverage, null, 2));
-            this._log('info', `Coverage saved to ${coveragePath}`);
+            this._log('info', `Saved coverage data to: ${coveragePath}`);
         } catch (error) {
-            this._log('error', `Error saving coverage: ${error.message}`);
+            this._log('error', `Failed to save coverage data: ${error.message}`);
             throw error;
         }
     }
