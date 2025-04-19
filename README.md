@@ -1,172 +1,161 @@
-# API Coverage
+# API Coverage Library
 
-Инструмент для отслеживания покрытия API тестами на основе Swagger спецификации.
+A library for tracking API test coverage based on Swagger/OpenAPI specifications.
+
+[Russian version (Русская версия)](#api-coverage-library-ru)
+
+## Features
+
+- Automatic tracking of API endpoints coverage
+- Support for Swagger/OpenAPI specifications
+- Real-time request monitoring
+- Detailed HTML reports
+- JSON reports for custom analysis
+- Coverage status tracking (Covered, Partial, Missing)
+
+## Installation
+
+```bash
+npm install api-coverage
+```
+
+## Quick Start
+
+```javascript
+import { ApiCoverage } from 'api-coverage';
+
+const coverage = new ApiCoverage({
+    swaggerPath: './swagger.json',
+    baseUrl: 'http://api.example.com',
+    outputDir: 'coverage'
+});
+
+await coverage.start();
+// Your tests here
+await coverage.stop();
+```
+
+## Coverage Statuses
+
+The library tracks three coverage statuses for each endpoint:
+
+1. **Covered**: All expected status codes have been tested
+2. **Partial**: Some status codes have been tested, but not all
+3. **Missing**: No status codes have been tested
+
+## Report Types
+
+### HTML Report
+- Visual representation of API coverage
+- Interactive interface
+- Detailed endpoint information
+- Status code coverage tracking
+- Request/response details
+
+### JSON Report
+- Machine-readable format
+- Suitable for custom analysis
+- Integration with other tools
+- Historical data comparison
+
+## Architecture
+
+The library consists of several key components:
+
+1. **ApiCoverage**: Main class that orchestrates the coverage tracking
+2. **RequestCollector**: Monitors and collects API requests
+3. **ReportGenerator**: Generates coverage reports
+4. **Coverage Calculator**: Analyzes coverage data
+
+## Configuration Options
+
+```javascript
+{
+    swaggerPath: string,      // Path to Swagger/OpenAPI specification
+    baseUrl: string,          // Base URL of the API
+    outputDir: string,        // Output directory for reports
+    debug: boolean,           // Enable debug logging
+    generateHtmlReport: boolean // Generate HTML report
+}
+```
+
+---
+
+# API Coverage Library (RU)
+
+Библиотека для отслеживания покрытия тестами API на основе спецификаций Swagger/OpenAPI.
 
 ## Возможности
 
-- Отслеживание запросов к API во время выполнения тестов
-- Расчет покрытия на основе Swagger спецификации
-- Генерация HTML отчета с детальной информацией о покрытии
-- Поддержка частичного покрытия (когда тестированы не все статус-коды)
-- Группировка эндпоинтов по сервисам
-- Статистика покрытия в процентах
-- Визуализация прогресса покрытия
-- Экспорт данных в JSON формат
-
-## Архитектура
-
-Инструмент состоит из следующих компонентов:
-
-- `ApiCoverage` - основной класс для инициализации и управления покрытием
-- `SwaggerLoader` - загрузчик Swagger спецификации
-- `RequestTracker` - трекер запросов к API
-- `CoverageCalculator` - калькулятор покрытия
-- `ReportGenerator` - генератор отчетов
+- Автоматическое отслеживание покрытия эндпоинтов API
+- Поддержка спецификаций Swagger/OpenAPI
+- Мониторинг запросов в реальном времени
+- Подробные HTML-отчеты
+- JSON-отчеты для пользовательского анализа
+- Отслеживание статусов покрытия (Покрыто, Частично, Не покрыто)
 
 ## Установка
 
 ```bash
-npm install @covermba/api-coverage
+npm install api-coverage
 ```
 
-## Использование
+## Быстрый старт
 
 ```javascript
-import ApiCoverage from '@covermba/api-coverage';
+import { ApiCoverage } from 'api-coverage';
 
-// Инициализация
 const coverage = new ApiCoverage({
-    swaggerUrl: 'https://api.example.com/swagger.json',
-    outputDir: './coverage'
+    swaggerPath: './swagger.json',
+    baseUrl: 'http://api.example.com',
+    outputDir: 'coverage'
 });
 
-// Запуск отслеживания
 await coverage.start();
-
-// Выполнение тестов...
-
-// Генерация отчета
-await coverage.generateReport();
+// Ваши тесты здесь
+await coverage.stop();
 ```
 
-## Конфигурация
+## Статусы покрытия
 
-### Базовые опции
+Библиотека отслеживает три статуса покрытия для каждого эндпоинта:
 
-| Опция | Тип | По умолчанию | Описание |
-|-------|-----|-------------|----------|
-| `swaggerUrl` | string | - | URL или путь к Swagger спецификации |
-| `outputDir` | string | './coverage' | Директория для сохранения отчетов |
-| `title` | string | 'API Coverage Report' | Заголовок отчета |
+1. **Covered (Покрыто)**: Протестированы все ожидаемые статус-коды
+2. **Partial (Частично)**: Протестирована часть статус-кодов, но не все
+3. **Missing (Не покрыто)**: Не протестирован ни один статус-код
 
-### Опции отчетов
+## Типы отчетов
 
-| Опция | Тип | По умолчанию | Описание |
-|-------|-----|-------------|----------|
-| `reportPath` | string | 'report.html' | Путь к HTML отчету |
-| `jsonPath` | string | 'coverage.json' | Путь к JSON отчету |
-| `templatePath` | string | - | Путь к пользовательскому шаблону |
+### HTML-отчет
+- Визуальное представление покрытия API
+- Интерактивный интерфейс
+- Подробная информация по эндпоинтам
+- Отслеживание покрытия статус-кодов
+- Детали запросов и ответов
 
-### Опции покрытия
+### JSON-отчет
+- Машиночитаемый формат
+- Подходит для пользовательского анализа
+- Интеграция с другими инструментами
+- Сравнение исторических данных
 
-| Опция | Тип | По умолчанию | Описание |
-|-------|-----|-------------|----------|
-| `partialCoverageThreshold` | number | 0.5 | Порог для частичного покрытия |
-| `ignorePaths` | string[] | [] | Пути для игнорирования |
-| `ignoreMethods` | string[] | [] | Методы для игнорирования |
+## Архитектура
 
-### Опции запросов
+Библиотека состоит из нескольких ключевых компонентов:
 
-| Опция | Тип | По умолчанию | Описание |
-|-------|-----|-------------|----------|
-| `trackRequestBody` | boolean | false | Отслеживать тело запроса |
-| `trackResponseBody` | boolean | false | Отслеживать тело ответа |
-| `trackHeaders` | boolean | false | Отслеживать заголовки |
+1. **ApiCoverage**: Основной класс, управляющий отслеживанием покрытия
+2. **RequestCollector**: Мониторит и собирает API-запросы
+3. **ReportGenerator**: Генерирует отчеты о покрытии
+4. **Coverage Calculator**: Анализирует данные о покрытии
 
-## Формат отчета
+## Параметры конфигурации
 
-### HTML отчет
-
-HTML отчет включает:
-- Общую статистику покрытия
-- Прогресс-бар с процентом покрытия
-- Количество эндпоинтов по категориям (всего, покрыто, частично, пропущено)
-- Детальную информацию по каждому эндпоинту:
-  - Метод и путь
-  - Описание и теги
-  - Статус покрытия
-  - Записанные запросы и их статус-коды
-
-### JSON отчет
-
-```json
+```javascript
 {
-    "metadata": {
-        "timestamp": "2024-03-21T12:00:00Z",
-        "swaggerUrl": "https://api.example.com/swagger.json"
-    },
-    "coverage": {
-        "totalEndpoints": 100,
-        "coveredEndpoints": 80,
-        "partialEndpoints": 15,
-        "missingEndpoints": 5,
-        "percentage": 87.5
-    },
-    "endpoints": [
-        {
-            "path": "/users",
-            "method": "GET",
-            "summary": "Get users",
-            "description": "Returns list of users",
-            "tags": ["users"],
-            "isCovered": true,
-            "isPartiallyCovered": false,
-            "requests": [
-                {
-                    "statusCode": 200,
-                    "timestamp": "2024-03-21T12:00:00Z"
-                }
-            ]
-        }
-    ]
+    swaggerPath: string,      // Путь к спецификации Swagger/OpenAPI
+    baseUrl: string,          // Базовый URL API
+    outputDir: string,        // Директория для отчетов
+    debug: boolean,           // Включить отладочное логирование
+    generateHtmlReport: boolean // Генерировать HTML-отчет
 }
-```
-
-## Структура проекта
-
-```
-src/
-├── coverage/
-│   ├── ApiCoverage.js
-│   ├── SwaggerLoader.js
-│   ├── RequestTracker.js
-│   ├── CoverageCalculator.js
-│   ├── ReportGenerator.js
-│   └── templates/
-│       └── report.ejs
-├── tests/
-│   └── integration/
-│       └── playwright/
-│           └── api-coverage.spec.js
-└── docs/
-    ├── configuration.md
-    └── reports.md
-```
-
-## Разработка
-
-### Запуск тестов
-
-```bash
-npm test
-```
-
-### Сборка
-
-```bash
-npm run build
-```
-
-## Лицензия
-
-MIT 
+``` 

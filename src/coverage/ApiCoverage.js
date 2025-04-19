@@ -76,6 +76,15 @@ export class ApiCoverage {
         Handlebars.registerHelper('eq', function(a, b) {
             return a === b;
         });
+
+        Handlebars.registerHelper('isStatusCodeCovered', function(requests, statusCode) {
+            return requests && requests.some(req => req.statusCode === statusCode);
+        });
+
+        Handlebars.registerHelper('lookup', function(obj, key, prop) {
+            if (!obj || !obj[key]) return '';
+            return obj[key][prop] || '';
+        });
     }
 
     /**
@@ -192,6 +201,7 @@ export class ApiCoverage {
                     description: methodObj.summary || methodObj.description || '',
                     expectedStatusCodes: this._getExpectedStatusCodes(methodObj),
                     parameters: methodObj.parameters || [],
+                    responses: methodObj.responses || {},
                     requests: [],
                     isCovered: false,
                     isPartiallyCovered: false,
@@ -211,15 +221,18 @@ export class ApiCoverage {
     }
 
     _getExpectedStatusCodes(methodObj) {
-        const statusCodes = new Set();
+        const statusCodes = [];
         if (methodObj.responses) {
-            for (const statusCode of Object.keys(methodObj.responses)) {
-                if (statusCode !== 'default') {
-                    statusCodes.add(parseInt(statusCode, 10));
+            for (const [code, response] of Object.entries(methodObj.responses)) {
+                if (code !== 'default') {
+                    statusCodes.push({
+                        code: parseInt(code, 10),
+                        description: response.description || ''
+                    });
                 }
             }
         }
-        return Array.from(statusCodes).sort((a, b) => a - b);
+        return statusCodes.sort((a, b) => a.code - b.code);
     }
 
     /**
@@ -236,8 +249,9 @@ export class ApiCoverage {
     recordRequest(request) {
         this._log('debug', `Recording request: ${JSON.stringify(request)}`);
         
-        const { method, path, statusCode, requestBody, responseBody } = request;
-        const normalizedPath = this._normalizePath(path);
+        const { method, path, status, statusCode, requestBody, responseBody } = request;
+        const basePath = this.options.basePath || '';
+        const normalizedPath = this._normalizePath(path.startsWith(basePath) ? path : basePath + path);
         const key = `${method.toUpperCase()} ${normalizedPath}`;
         
         this._log('debug', `Normalized request key: ${key}`);
@@ -250,7 +264,7 @@ export class ApiCoverage {
             const requestData = {
                 method,
                 path: normalizedPath,
-                statusCode,
+                status: status || statusCode,
                 requestBody,
                 responseBody,
                 timestamp: new Date().toISOString()
@@ -263,8 +277,8 @@ export class ApiCoverage {
     }
 
     _updateEndpointCoverage(endpoint) {
-        const coveredStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
-        const expectedStatusCodes = new Set(endpoint.expectedStatusCodes);
+        const coveredStatusCodes = new Set(endpoint.requests.map(r => r.status || r.statusCode));
+        const expectedStatusCodes = new Set(endpoint.expectedStatusCodes.map(s => s.code));
         
         const coveredCount = Array.from(coveredStatusCodes).filter(code => 
             expectedStatusCodes.has(code)).length;
@@ -274,7 +288,7 @@ export class ApiCoverage {
             endpoint.isPartiallyCovered = false;
             endpoint.coverageStatus = 'covered';
         } else if (coveredCount > 0) {
-            endpoint.isCovered = true;
+            endpoint.isCovered = false;
             endpoint.isPartiallyCovered = true;
             endpoint.coverageStatus = 'partially-covered';
         } else {
@@ -282,6 +296,13 @@ export class ApiCoverage {
             endpoint.isPartiallyCovered = false;
             endpoint.coverageStatus = 'not-covered';
         }
+
+        this._log('debug', `Updated endpoint coverage:
+            Path: ${endpoint.path}
+            Expected status codes: ${Array.from(expectedStatusCodes).join(', ')}
+            Covered status codes: ${Array.from(coveredStatusCodes).join(', ')}
+            Coverage status: ${endpoint.coverageStatus}
+        `);
     }
 
     _calculateCoverage() {
@@ -289,6 +310,7 @@ export class ApiCoverage {
         const totalEndpoints = endpointsList.length;
         const coveredEndpoints = endpointsList.filter(e => e.coverageStatus === 'covered').length;
         const partiallyCoveredEndpoints = endpointsList.filter(e => e.coverageStatus === 'partially-covered').length;
+        const missingEndpoints = endpointsList.filter(e => e.coverageStatus === 'not-covered').length;
         
         // Group endpoints by service (based on first path segment)
         const services = new Map();
@@ -310,12 +332,14 @@ export class ApiCoverage {
             Total endpoints: ${totalEndpoints}
             Covered endpoints: ${coveredEndpoints}
             Partially covered endpoints: ${partiallyCoveredEndpoints}
+            Missing endpoints: ${missingEndpoints}
             Coverage percentage: ${percentage}%`);
         
         return {
             totalEndpoints,
             coveredEndpoints,
             partiallyCoveredEndpoints,
+            missingEndpoints,
             percentage,
             services: Array.from(services.values())
         };

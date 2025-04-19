@@ -9,20 +9,39 @@
         .endpoint-row { cursor: pointer; }
         .request-details { display: none; }
         .status-code {
-            padding: 2px 6px;
+            padding: 4px 8px;
             border-radius: 4px;
             margin-right: 4px;
             display: inline-block;
+            font-weight: 500;
+            font-size: 0.875rem;
         }
-        .status-2xx { background-color: #d4edda; color: #155724; }
-        .status-4xx { background-color: #fff3cd; color: #856404; }
-        .status-5xx { background-color: #f8d7da; color: #721c24; }
+        .status-2xx { 
+            background-color: #198754; 
+            color: white; 
+        }
+        .status-4xx { 
+            background-color: #ffc107; 
+            color: black; 
+        }
+        .status-5xx { 
+            background-color: #dc3545; 
+            color: white; 
+        }
+        .status-undeclared { 
+            background-color: #6c757d; 
+            color: white; 
+        }
+        .status-not-covered {
+            background-color: #dc3545;
+            color: white;
+        }
         .coverage-badge {
             padding: 3px 8px;
             border-radius: 12px;
             font-size: 0.8em;
         }
-        .covered { background-color: #28a745; color: white; }
+        .covered { background-color: #198754; color: white; }
         .partially-covered { background-color: #ffc107; color: black; }
         .not-covered { background-color: #dc3545; color: white; }
         pre { white-space: pre-wrap; word-wrap: break-word; }
@@ -33,11 +52,11 @@
             color: white;
             font-weight: bold;
         }
-        .method-GET { background-color: #61affe; }
-        .method-POST { background-color: #49cc90; }
-        .method-PUT { background-color: #fca130; }
-        .method-DELETE { background-color: #f93e3e; }
-        .method-PATCH { background-color: #50e3c2; }
+        .method-GET { background-color: #0d6efd; }
+        .method-POST { background-color: #198754; }
+        .method-PUT { background-color: #ffc107; color: black; }
+        .method-DELETE { background-color: #dc3545; }
+        .method-PATCH { background-color: #6f42c1; }
         .timestamp {
             font-size: 0.8em;
             color: #6c757d;
@@ -46,6 +65,11 @@
             font-family: monospace;
             color: #6c757d;
             font-size: 0.9em;
+        }
+        .status-code-description {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-left: 4px;
         }
     </style>
 </head>
@@ -71,6 +95,22 @@
                             Covered: {{coverage.coveredEndpoints}}<br>
                             Partially: {{coverage.partiallyCoveredEndpoints}}
                         </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Partial</h6>
+                        <p class="card-text">{{coverage.partiallyCoveredEndpoints}}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Missing</h6>
+                        <p class="card-text">{{coverage.missingEndpoints}}</p>
                     </div>
                 </div>
             </div>
@@ -121,36 +161,61 @@
                                         <div class="card">
                                             <div class="card-body">
                                                 <h5>Expected Status Codes</h5>
-                                                <p>
-                                                    {{#each this.expectedStatusCodes}}
-                                                        <span class="status-code status-{{floor this 100}}xx">{{this}}</span>
-                                                    {{/each}}
-                                                </p>
-                                                
-                                                {{#if this.requests.length}}
-                                                    <h5>Recorded Requests</h5>
-                                                    {{#each this.requests}}
-                                                        <div class="card mb-3">
-                                                            <div class="card-body">
-                                                                <h6>
-                                                                    {{this.method}} {{this.path}}
-                                                                    <span class="status-code status-{{floor this.statusCode 100}}xx">{{this.statusCode}}</span>
-                                                                    <span class="timestamp">{{this.timestamp}}</span>
-                                                                </h6>
-                                                                {{#if this.requestBody}}
-                                                                    <h6>Request Body:</h6>
-                                                                    <pre><code>{{json this.requestBody}}</code></pre>
-                                                                {{/if}}
-                                                                {{#if this.responseBody}}
-                                                                    <h6>Response Body:</h6>
-                                                                    <pre><code>{{json this.responseBody}}</code></pre>
+                                                <div class="mb-3">
+                                                    <!-- Status Codes Section -->
+                                                    <h6 class="mt-3">Status Codes:</h6>
+                                                    <div class="mb-3">
+                                                        <p><strong>Declared in Swagger:</strong></p>
+                                                        {{#each this.responses}}
+                                                            <div class="d-flex align-items-center mb-2">
+                                                                {{#if (isStatusCodeCovered ../requests @key)}}
+                                                                    <span class="status-code status-{{floor @key 100}}xx">
+                                                                        {{@key}} - {{this.description}}
+                                                                    </span>
+                                                                {{else}}
+                                                                    {{#if (eq ../../coverageStatus "not-covered")}}
+                                                                        <span class="status-code status-not-covered">
+                                                                            {{@key}} - {{this.description}} (not covered)
+                                                                        </span>
+                                                                    {{else if (eq ../../coverageStatus "partially-covered")}}
+                                                                        <span class="status-code status-not-covered">
+                                                                            {{@key}} - {{this.description}} (not covered)
+                                                                        </span>
+                                                                    {{else}}
+                                                                        <span class="status-code status-undeclared">
+                                                                            {{@key}} - {{this.description}} (not covered)
+                                                                        </span>
+                                                                    {{/if}}
                                                                 {{/if}}
                                                             </div>
-                                                        </div>
-                                                    {{/each}}
-                                                {{else}}
-                                                    <p>No requests recorded</p>
-                                                {{/if}}
+                                                        {{/each}}
+                                                    </div>
+                                                    
+                                                    {{#if this.requests.length}}
+                                                        <h5>Recorded Requests</h5>
+                                                        {{#each this.requests}}
+                                                            <div class="card mb-3">
+                                                                <div class="card-body">
+                                                                    <h6>
+                                                                        {{this.method}} {{this.path}}
+                                                                        <span class="status-code status-{{floor this.statusCode 100}}xx">{{this.statusCode}}</span>
+                                                                        <span class="timestamp">{{this.timestamp}}</span>
+                                                                    </h6>
+                                                                    {{#if this.requestBody}}
+                                                                        <h6>Request Body:</h6>
+                                                                        <pre><code>{{json this.requestBody}}</code></pre>
+                                                                    {{/if}}
+                                                                    {{#if this.responseBody}}
+                                                                        <h6>Response Body:</h6>
+                                                                        <pre><code>{{json this.responseBody}}</code></pre>
+                                                                    {{/if}}
+                                                                </div>
+                                                            </div>
+                                                        {{/each}}
+                                                    {{else}}
+                                                        <p>No requests recorded</p>
+                                                    {{/if}}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>

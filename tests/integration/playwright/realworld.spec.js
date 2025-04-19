@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { ApiCoverage } from '../../../src/coverage/ApiCoverage.js';
-import { RequestCollector } from '../../../src/coverage/RequestCollector.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -8,7 +7,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let apiCoverage;
-let collector;
 
 test.beforeAll(async () => {
     apiCoverage = new ApiCoverage({
@@ -17,12 +15,11 @@ test.beforeAll(async () => {
         basePath: '/api',
         outputDir: './coverage/realworld',
         title: 'RealWorld API Coverage Report',
-        debug: false,
+        debug: true,
         generateHtmlReport: true
     });
     
     await apiCoverage.start();
-    collector = new RequestCollector(apiCoverage);
 });
 
 test.afterAll(async () => {
@@ -39,7 +36,6 @@ test('should track API coverage with login request', async ({ request }) => {
         }
     });
     
-    // Записываем запрос в коллектор
     let responseBody = {};
     try {
         responseBody = await response.json();
@@ -47,10 +43,10 @@ test('should track API coverage with login request', async ({ request }) => {
         console.log('No response body or invalid JSON');
     }
 
-    collector.recordRequest({
+    apiCoverage.recordRequest({
         method: 'POST',
         path: '/users/login',
-        statusCode: response.status(),
+        status: response.status(),
         requestBody: {
             user: {
                 email: 'test@example.com',
@@ -68,9 +64,6 @@ test('should track API coverage with login request', async ({ request }) => {
     expect(responseData.user.username).toBeDefined();
     expect(responseData.user.bio).toBeDefined();
     expect(responseData.user.image).toBeDefined();
-    
-    // Генерируем отчет явно
-    await apiCoverage.generateReport();
 });
 
 test('should track API coverage with login request - invalid credentials', async ({ request }) => {
@@ -83,7 +76,6 @@ test('should track API coverage with login request - invalid credentials', async
         }
     });
 
-    // Записываем запрос в коллектор
     let responseBody = {};
     try {
         responseBody = await response.json();
@@ -91,10 +83,10 @@ test('should track API coverage with login request - invalid credentials', async
         console.log('No response body or invalid JSON');
     }
 
-    collector.recordRequest({
+    apiCoverage.recordRequest({
         method: 'POST',
         path: '/users/login',
-        statusCode: response.status(),
+        status: response.status(),
         requestBody: {
             user: {
                 email: 'test@test.com',
@@ -115,7 +107,4 @@ test('should track API coverage with login request - invalid credentials', async
     console.log('\nResponse status:', response.status());
     console.log('\nResponse headers:', response.headers());
     console.log('\nResponse text:', await response.text());
-
-    // Генерируем отчет явно
-    await apiCoverage.generateReport();
 }); 
