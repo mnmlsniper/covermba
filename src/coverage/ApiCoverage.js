@@ -215,11 +215,23 @@ export class ApiCoverage {
         }
     }
 
+    /**
+     * Нормализует путь API, удаляя лишние слэши и приводя к единому формату
+     * @private
+     * @param {string} path - Путь для нормализации
+     * @returns {string} Нормализованный путь
+     */
     _normalizePath(path) {
         // Remove trailing slash if present
         return path.endsWith('/') ? path.slice(0, -1) : path;
     }
 
+    /**
+     * Извлекает ожидаемые статус коды из спецификации метода
+     * @private
+     * @param {Object} methodObj - Объект метода из Swagger спецификации
+     * @returns {Array<Object>} Массив объектов с кодами и описаниями
+     */
     _getExpectedStatusCodes(methodObj) {
         const statusCodes = [];
         if (methodObj.responses) {
@@ -276,6 +288,12 @@ export class ApiCoverage {
         }
     }
 
+    /**
+     * Обновляет информацию о покрытии эндпоинта
+     * @private
+     * @param {Object} endpoint - Объект эндпоинта
+     * @returns {Object} Обновленная информация о покрытии
+     */
     _updateEndpointCoverage(endpoint) {
         const coveredStatusCodes = new Set(endpoint.requests.map(r => r.status || r.statusCode));
         const expectedStatusCodes = new Set(endpoint.expectedStatusCodes.map(s => s.code));
@@ -432,6 +450,14 @@ export class ApiCoverage {
         }
     }
 
+    /**
+     * Генерирует отчет о покрытии API
+     * Создает HTML и JSON отчеты в указанной директории
+     * @public
+     * @async
+     * @returns {Promise<Object>} Объект с информацией о покрытии
+     * @throws {Error} Если не удалось сгенерировать отчет
+     */
     async generateReport() {
         const coverage = this._calculateCoverage();
         
