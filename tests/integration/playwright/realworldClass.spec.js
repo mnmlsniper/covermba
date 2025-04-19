@@ -49,7 +49,7 @@ test.describe('RealWorld API Coverage', () => {
 	test.beforeAll(async () => {
 		apiCoverage = new ApiCoverage({
 			swaggerPath: 'tests/integration/playwright/swagger.json',
-			outputPath: 'coverage/realworldClass',
+			outputDir: './coverage/realworldClass',
 			generateHtmlReport: true
 		});
 		await apiCoverage.start();

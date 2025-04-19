@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+        <link href="assets/styles.css" rel="stylesheet">
+        <style>
+            .status-code {
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            .status-2xx { background-color: #d4edda; color: #155724; }
+            .status-3xx { background-color: #fff3cd; color: #856404; }
+            .status-4xx { background-color: #f8d7da; color: #721c24; }
+            .status-5xx { background-color: #dc3545; color: white; }
+            .status-undeclared { background-color: #ffc107; color: #000; }
+            .parameter-table { font-size: 0.9em; }
+            .parameter-table th { background-color: #f8f9fa; }
+        </style>
+        <title>API Coverage Report</title>
+    </head>
+    <body>
+        <div class="container mt-4">
+            <h1 class="mb-4">API Coverage Report</h1>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Coverage Summary</h5>
+                    <div class="progress mb-3" style="height: 30px;">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: <%= coverage.percentage %>%;" 
+                             aria-valuenow="<%= coverage.percentage %>" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            <%= coverage.percentage.toFixed(2) %>%
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Total Endpoints</h6>
+                                    <p class="card-text"><%= coverage.totalEndpoints %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Covered</h6>
+                                    <p class="card-text"><%= coverage.coveredEndpoints %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Partial</h6>
+                                    <p class="card-text"><%= coverage.partialEndpoints %></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Missing</h6>
+                                    <p class="card-text"><%= coverage.missingEndpoints %></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs mb-4" id="coverageTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">All</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="missing-tab" data-bs-toggle="tab" data-bs-target="#missing" type="button" role="tab">Missing</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="partial-tab" data-bs-toggle="tab" data-bs-target="#partial" type="button" role="tab">Partial</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="covered-tab" data-bs-toggle="tab" data-bs-target="#covered" type="button" role="tab">Covered</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="coverageTabsContent">
+                <div class="tab-pane fade show active" id="all" role="tabpanel">
+                    <% services.forEach((service, serviceIndex) => { %>
+                        <div class="accordion mb-4" id="accordion-<%= service.name %>">
+                            <h3><%= service.name %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            data-bs-target="#collapse-<%= service.name %>-<%= index %>" aria-expanded="false"
+                                            aria-controls="collapse-<%= service.name %>-<%= index %>">
+                                            <div class="d-flex align-items-center w-100">
+                                                <span class="badge <%= endpoint.isCovered ? 'bg-success' : (endpoint.isPartiallyCovered ? 'bg-warning' : 'bg-danger') %> me-2">
+                                                    <%= endpoint.isCovered ? 'Covered' : (endpoint.isPartiallyCovered ? 'Partial' : 'Missing') %>
+                                                </span>
+                                                <span class="method me-2"><%= endpoint.method %></span>
+                                                <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-<%= service.name %>-<%= index %>" class="accordion-collapse collapse">
+                                        <div class="accordion-body">
+                                            <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                            <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                            <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                            <% } %>
+
+                                            <!-- Parameters Section -->
+                                            <% if (endpoint.parameters && endpoint.parameters.length) { %>
+                                                <h6 class="mt-3">Parameters:</h6>
+                                                <table class="table table-sm parameter-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>In</th>
+                                                            <th>Required</th>
+                                                            <th>Type</th>
+                                                            <th>Description</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% endpoint.parameters.forEach(param => { %>
+                                                            <% const formattedParam = formatParameter(param); %>
+                                                            <tr>
+                                                                <td><%= formattedParam.name %></td>
+                                                                <td><%= formattedParam.in %></td>
+                                                                <td><%= formattedParam.required %></td>
+                                                                <td><%= formattedParam.type %></td>
+                                                                <td><%= formattedParam.description %></td>
+                                                            </tr>
+                                                        <% }) %>
+                                                    </tbody>
+                                                </table>
+                                            <% } %>
+
+                                            <!-- Status Codes Section -->
+                                            <h6 class="mt-3">Status Codes:</h6>
+                                            <div class="mb-3">
+                                                <% if (endpoint.responses) { %>
+                                                    <p><strong>Declared in Swagger:</strong></p>
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <% Object.entries(endpoint.responses).forEach(([code, response]) => { %>
+                                                            <% const formattedResponse = formatResponse({ code, ...response }); %>
+                                                            <span class="status-code status-<%= code.charAt(0) %>xx">
+                                                                <%= formattedResponse.code %> - <%= formattedResponse.description %>
+                                                            </span>
+                                                        <% }) %>
+                                                    </div>
+                                                <% } %>
+                                            </div>
+
+                                            <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                <h6>Tested Status Codes:</h6>
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Status Code</th>
+                                                            <th>Timestamp</th>
+                                                            <th>Request Data</th>
+                                                            <th>Response Data</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <% endpoint.requests.forEach(request => { %>
+                                                            <% const formattedRequest = formatRequest(request); %>
+                                                            <tr>
+                                                                <td>
+                                                                    <% if (formattedRequest.statusCode) { %>
+                                                                        <span class="status-code <%= getStatusCodeClass(formattedRequest.statusCode, endpoint.responses) %>">
+                                                                            <%= formattedRequest.statusCode %>
+                                                                        </span>
+                                                                    <% } else { %>
+                                                                        <span class="status-code status-undeclared">Unknown</span>
+                                                                    <% } %>
+                                                                </td>
+                                                                <td><%= formattedRequest.timestamp %></td>
+                                                                <td>
+                                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                                            data-bs-toggle="collapse" 
+                                                                            data-bs-target="#request-<%= service.name %>-<%= index %>-<%= request.timestamp %>">
+                                                                        View Request
+                                                                    </button>
+                                                                    <div class="collapse" id="request-<%= service.name %>-<%= index %>-<%= request.timestamp %>">
+                                                                        <pre class="mt-2"><%= JSON.stringify(formattedRequest.requestData, null, 2) %></pre>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                                            data-bs-toggle="collapse" 
+                                                                            data-bs-target="#response-<%= service.name %>-<%= index %>-<%= request.timestamp %>">
+                                                                        View Response
+                                                                    </button>
+                                                                    <div class="collapse" id="response-<%= service.name %>-<%= index %>-<%= request.timestamp %>">
+                                                                        <pre class="mt-2"><%= JSON.stringify(formattedRequest.responseData, null, 2) %></pre>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        <% }) %>
+                                                    </tbody>
+                                                </table>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="missing" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-missing-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (!endpoint.isCovered && !endpoint.isPartiallyCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-missing-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-missing-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-danger me-2">Missing</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-missing-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+
+                                                <!-- Parameters Section -->
+                                                <% if (endpoint.parameters && endpoint.parameters.length) { %>
+                                                    <h6 class="mt-3">Parameters:</h6>
+                                                    <table class="table table-sm parameter-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Name</th>
+                                                                <th>In</th>
+                                                                <th>Required</th>
+                                                                <th>Type</th>
+                                                                <th>Description</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <% endpoint.parameters.forEach(param => { %>
+                                                                <% const formattedParam = formatParameter(param); %>
+                                                                <tr>
+                                                                    <td><%= formattedParam.name %></td>
+                                                                    <td><%= formattedParam.in %></td>
+                                                                    <td><%= formattedParam.required %></td>
+                                                                    <td><%= formattedParam.type %></td>
+                                                                    <td><%= formattedParam.description %></td>
+                                                                </tr>
+                                                            <% }) %>
+                                                        </tbody>
+                                                    </table>
+                                                <% } %>
+
+                                                <!-- Status Codes Section -->
+                                                <h6 class="mt-3">Expected Status Codes:</h6>
+                                                <div class="mb-3">
+                                                    <% if (endpoint.responses) { %>
+                                                        <div class="d-flex flex-wrap gap-2">
+                                                            <% Object.entries(endpoint.responses).forEach(([code, response]) => { %>
+                                                                <% const formattedResponse = formatResponse({ code, ...response }); %>
+                                                                <span class="status-code status-<%= code.charAt(0) %>xx">
+                                                                    <%= formattedResponse.code %> - <%= formattedResponse.description %>
+                                                                </span>
+                                                            <% }) %>
+                                                        </div>
+                                                    <% } %>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="partial" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-partial-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (endpoint.isPartiallyCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-partial-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-partial-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-warning me-2">Partial</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-partial-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+                                                <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                    <h6>Requests:</h6>
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Status Code</th>
+                                                                <th>Timestamp</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <% endpoint.requests.forEach(request => { %>
+                                                                <tr>
+                                                                    <td><%= request.statusCode %></td>
+                                                                    <td><%= new Date(request.timestamp).toLocaleString() %></td>
+                                                                </tr>
+                                                            <% }) %>
+                                                        </tbody>
+                                                    </table>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="tab-pane fade" id="covered" role="tabpanel">
+                    <% Object.entries(services).forEach(([serviceName, service]) => { %>
+                        <div class="accordion mb-4" id="accordion-covered-<%= serviceName %>">
+                            <h3><%= serviceName %></h3>
+                            <% Object.entries(service.endpoints).forEach(([key, endpoint], index) => { %>
+                                <% if (endpoint.isCovered) { %>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-covered-<%= serviceName %>-<%= index %>" aria-expanded="false"
+                                                aria-controls="collapse-covered-<%= serviceName %>-<%= index %>">
+                                                <div class="d-flex align-items-center w-100">
+                                                    <span class="badge bg-success me-2">Covered</span>
+                                                    <span class="method me-2"><%= endpoint.method %></span>
+                                                    <span class="path flex-grow-1"><%= endpoint.path %></span>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse-covered-<%= serviceName %>-<%= index %>" class="accordion-collapse collapse">
+                                            <div class="accordion-body">
+                                                <p><strong>Summary:</strong> <%= endpoint.summary %></p>
+                                                <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                                <% if (endpoint.tags && endpoint.tags.length) { %>
+                                                    <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
+                                                <% } %>
+                                                <% if (endpoint.requests && endpoint.requests.length) { %>
+                                                    <h6>Requests:</h6>
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Status Code</th>
+                                                                <th>Timestamp</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <% endpoint.requests.forEach(request => { %>
+                                                                <tr>
+                                                                    <td><%= request.statusCode %></td>
+                                                                    <td><%= new Date(request.timestamp).toLocaleString() %></td>
+                                                                </tr>
+                                                            <% }) %>
+                                                        </tbody>
+                                                    </table>
+                                                <% } %>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <% } %>
+                            <% }) %>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>
+
+<% function getStatusCodeClass(statusCode, declaredResponses) { %>
+    <% 
+        const firstDigit = statusCode.toString().charAt(0);
+        const isDeclared = declaredResponses && declaredResponses[statusCode];
+        return isDeclared ? `status-${firstDigit}xx` : 'status-undeclared';
+    %>
+<% } %>
+
+<% function isPartiallyCovered(endpoint) { %>
+    <% if (!endpoint.requests?.length) return false; %>
+    <% 
+        const expectedStatusCodes = Object.keys(endpoint.responses || {});
+        const actualStatusCodes = new Set(endpoint.requests.map(r => r.statusCode));
+        return actualStatusCodes.size > 0 && expectedStatusCodes.some(code => !actualStatusCodes.has(code));
+    %>
+<% } %>

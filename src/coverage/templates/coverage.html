@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Coverage Report</title>
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <style>
+        .endpoint-row { cursor: pointer; }
+        .request-details { display: none; }
+        .status-code {
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 4px;
+            display: inline-block;
+        }
+        .status-2xx { background-color: #d4edda; color: #155724; }
+        .status-4xx { background-color: #fff3cd; color: #856404; }
+        .status-5xx { background-color: #f8d7da; color: #721c24; }
+        .coverage-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        .covered { background-color: #28a745; color: white; }
+        .partially-covered { background-color: #ffc107; color: black; }
+        .not-covered { background-color: #dc3545; color: white; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+        .method-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            color: white;
+            font-weight: bold;
+        }
+        .method-GET { background-color: #61affe; }
+        .method-POST { background-color: #49cc90; }
+        .method-PUT { background-color: #fca130; }
+        .method-DELETE { background-color: #f93e3e; }
+        .method-PATCH { background-color: #50e3c2; }
+        .timestamp {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+        .endpoint-key {
+            font-family: monospace;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>API Coverage Report</h1>
+        
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Coverage</h5>
+                        <h2 class="card-text">{{formatNumber coverage.percentage 1}}%</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Endpoints</h5>
+                        <p class="card-text">
+                            Total: {{coverage.totalEndpoints}}<br>
+                            Covered: {{coverage.coveredEndpoints}}<br>
+                            Partially: {{coverage.partiallyCoveredEndpoints}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            {{#each coverage.services}}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>{{this.name}}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {{#each this.endpoints}}
+                                <tr class="endpoint-row" data-endpoint="{{@key}}">
+                                    <td>
+                                        <span class="method-badge method-{{this.method}}">{{this.method}}</span>
+                                    </td>
+                                    <td>
+                                        {{this.path}}
+                                        <div class="endpoint-key">{{this.method}} {{this.path}}</div>
+                                    </td>
+                                    <td>
+                                        <span class="coverage-badge {{this.coverageStatus}}">
+                                            {{#if (eq this.coverageStatus 'covered')}}
+                                                Covered
+                                            {{else if (eq this.coverageStatus 'partially-covered')}}
+                                                Partially Covered
+                                            {{else}}
+                                                Not Covered
+                                            {{/if}}
+                                        </span>
+                                    </td>
+                                    <td>{{this.description}}</td>
+                                </tr>
+                                <tr class="request-details" id="details-{{@key}}">
+                                    <td colspan="4">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h5>Expected Status Codes</h5>
+                                                <p>
+                                                    {{#each this.expectedStatusCodes}}
+                                                        <span class="status-code status-{{floor this 100}}xx">{{this}}</span>
+                                                    {{/each}}
+                                                </p>
+                                                
+                                                {{#if this.requests.length}}
+                                                    <h5>Recorded Requests</h5>
+                                                    {{#each this.requests}}
+                                                        <div class="card mb-3">
+                                                            <div class="card-body">
+                                                                <h6>
+                                                                    {{this.method}} {{this.path}}
+                                                                    <span class="status-code status-{{floor this.statusCode 100}}xx">{{this.statusCode}}</span>
+                                                                    <span class="timestamp">{{this.timestamp}}</span>
+                                                                </h6>
+                                                                {{#if this.requestBody}}
+                                                                    <h6>Request Body:</h6>
+                                                                    <pre><code>{{json this.requestBody}}</code></pre>
+                                                                {{/if}}
+                                                                {{#if this.responseBody}}
+                                                                    <h6>Response Body:</h6>
+                                                                    <pre><code>{{json this.responseBody}}</code></pre>
+                                                                {{/if}}
+                                                            </div>
+                                                        </div>
+                                                    {{/each}}
+                                                {{else}}
+                                                    <p>No requests recorded</p>
+                                                {{/if}}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {{/each}}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.endpoint-row').forEach(row => {
+                row.addEventListener('click', function() {
+                    const endpoint = this.dataset.endpoint;
+                    const details = document.getElementById(`details-${endpoint}`);
+                    if (details) {
+                        details.style.display = details.style.display === 'none' ? 'table-row' : 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
