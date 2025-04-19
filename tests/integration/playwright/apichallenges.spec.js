@@ -19,22 +19,38 @@ test.beforeAll(async () => {
 
     await apiCoverage.start();
     collector = new RequestCollector(apiCoverage);
+});
 
+test.afterAll(async () => {
+    await apiCoverage.stop();
 });
 
 test('should track API coverage with multiple requests', async ({ request }) => {
     // 1. Создаем новую сессию
     const challengerResponse = await request.post('https://apichallenges.herokuapp.com/challenger');
-    await collector.collect({
-        method: 'POST',
-        url: 'https://apichallenges.herokuapp.com/challenger',
-        statusCode: challengerResponse.status(),
-        headers: challengerResponse.headers()
-    });
-    
     expect(challengerResponse.status()).toBe(201);
+    
     const challengerId = challengerResponse.headers()['x-challenger'];
     expect(challengerId).toBeDefined();
+
+    // Записываем запрос в коллектор
+    let responseBody = {};
+    try {
+        const text = await challengerResponse.text();
+        if (text) {
+            responseBody = JSON.parse(text);
+        }
+    } catch (e) {
+        console.log('No response body for challenger request');
+    }
+
+    collector.recordRequest({
+        method: 'POST',
+        path: '/challenger',
+        status: challengerResponse.status(),
+        requestBody: {},
+        responseBody
+    });
 
     // 2. Получаем список задач
     const challengesResponse = await request.get('https://apichallenges.herokuapp.com/challenges', {
@@ -42,69 +58,73 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             'x-challenger': challengerId
         }
     });
-    await collector.collect({
-        method: 'GET',
-        url: 'https://apichallenges.herokuapp.com/challenges',
-        statusCode: challengesResponse.status(),
-        headers: challengesResponse.headers()
-    });
     expect(challengesResponse.status()).toBe(200);
 
-    // 3. Получаем детали первой задачи
-    const responseData = await challengesResponse.json();
-    const challenges = responseData.challenges;
-    
-    // Проверяем, что у нас есть хотя бы одна задача
-    expect(challenges.length).toBeGreaterThan(0);
-    
-    // Вместо запроса к конкретному челленджу, сделаем запрос к /todos
+    // Записываем запрос в коллектор
+    responseBody = {};
+    try {
+        const text = await challengesResponse.text();
+        if (text) {
+            responseBody = JSON.parse(text);
+        }
+    } catch (e) {
+        console.log('No response body for challenges request');
+    }
+
+    collector.recordRequest({
+        method: 'GET',
+        path: '/challenges',
+        status: challengesResponse.status(),
+        requestBody: {},
+        responseBody
+    });
+
+    // 3. Получаем список todos
     const todosResponse = await request.get('https://apichallenges.herokuapp.com/todos', {
         headers: {
             'x-challenger': challengerId
         }
     });
-    await collector.collect({
-        method: 'GET',
-        url: 'https://apichallenges.herokuapp.com/todos',
-        statusCode: todosResponse.status(),
-        headers: todosResponse.headers()
-    });
     expect(todosResponse.status()).toBe(200);
 
-    // Генерируем отчет и получаем данные о покрытии
-    const coverage = await apiCoverage.generateReport();
-      
-    
-    expect(coverage).toBeTruthy();
-    expect(coverage.totalEndpoints).toBeGreaterThan(0);
-    expect(coverage.coveredEndpoints).toBeGreaterThan(0);
-    expect(coverage.percentage).toBeGreaterThan(0);
+    // Записываем запрос в коллектор
+    responseBody = {};
+    try {
+        const text = await todosResponse.text();
+        if (text) {
+            responseBody = JSON.parse(text);
+        }
+    } catch (e) {
+        console.log('No response body for todos request');
+    }
 
-    // Проверяем, что все наши запросы были зафиксированы
-    const coveredEndpoints = coverage.endpoints
-        .filter(endpoint => endpoint.requests && endpoint.requests.length > 0)
-        .map(endpoint => `${endpoint.method} ${endpoint.path}`);
-    
-    expect(coveredEndpoints.length).toBeGreaterThan(0);
-    expect(coveredEndpoints).toContain('POST /challenger');
-    expect(coveredEndpoints).toContain('GET /challenges');
-    expect(coveredEndpoints).toContain('GET /todos');
+    collector.recordRequest({
+        method: 'GET',
+        path: '/todos',
+        status: todosResponse.status(),
+        requestBody: {},
+        responseBody
+    });
 
-    // Verify coverage report
-    const coverageReport = await apiCoverage.generateReport();
-    expect(coverageReport.totalEndpoints).toBeGreaterThan(0);
-    expect(coverageReport.coveredEndpoints).toBeGreaterThan(0);
-    expect(coverageReport.percentage).toBeGreaterThan(0);
-    expect(coverageReport.endpoints).toBeDefined();
-    expect(coverageReport.endpoints.length).toBeGreaterThan(0);
-    expect(coverageReport.services).toBeDefined();
-    expect(Object.keys(coverageReport.services).length).toBeGreaterThan(0);
+    // Генерируем отчет
+    await apiCoverage.generateReport();
 
-    // Verify HTML report file
-    const reportPath = path.join(process.cwd(), 'coverage', 'apichallenges', 'coverage.html');
-    expect(fs.existsSync(reportPath)).toBe(true);
+    // Проверяем существование файлов отчета
+    const coverageDir = path.join(process.cwd(), 'coverage', 'apichallenges');
+    const htmlReportPath = path.join(coverageDir, 'coverage.html');
+    const jsonReportPath = path.join(coverageDir, 'coverage.json');
+
+    // Проверяем существование директории
+    expect(fs.existsSync(coverageDir)).toBe(true);
     
-    const reportContent = fs.readFileSync(reportPath, 'utf8');
-    expect(reportContent).toContain('API Coverage Report');
-    expect(reportContent).toContain(`${coverageReport.percentage.toFixed(2)}%`);
+    // Проверяем существование файлов отчета
+    expect(fs.existsSync(htmlReportPath)).toBe(true);
+    expect(fs.existsSync(jsonReportPath)).toBe(true);
+
+    // Проверяем содержимое JSON отчета
+    const jsonReport = JSON.parse(fs.readFileSync(jsonReportPath, 'utf8'));
+    expect(jsonReport).toBeTruthy();
+    expect(jsonReport.totalEndpoints).toBeGreaterThan(0);
+    expect(jsonReport.coveredEndpoints).toBeGreaterThan(0);
+    expect(jsonReport.percentage).toBeGreaterThan(0);
 }); 

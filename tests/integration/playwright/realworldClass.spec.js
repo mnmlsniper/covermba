@@ -1,62 +1,75 @@
 import { test, expect } from '@playwright/test';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import { ApiCoverage } from '../../../src/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { ApiCoverage } from '../../../src/coverage/ApiCoverage.js';
 
 class UsersService {
-	constructor(request) {
+	constructor(request, apiCoverage) {
 		this.request = request;
+		this.apiCoverage = apiCoverage;
+		this.baseUrl = 'https://realworld.qa.guru/api';
 	}
 
-	async login(email, password) {
+	async login(data) {
 		const requestData = {
-			data: {
-				user: {
-					email,
-					password
-				}
+			user: {
+				email: data.email,
+				password: data.password
 			}
 		};
-		const response = await this.request.post('/users/login', {
+		console.log('Request URL:', `${this.baseUrl}/users/login`);
+		console.log('Request data:', JSON.stringify(requestData, null, 2));
+		
+		const response = await this.request.post(`${this.baseUrl}/users/login`, {
 			data: requestData
 		});
-	/*	if (!response.ok()) {
-			throw new Error(`Login failed with status ${response.status()}`);
-		} */
+		
+		console.log('Response status:', response.status());
+		console.log('Response headers:', response.headers());
+		const responseText = await response.text();
+		console.log('Response text:', responseText);
+		
+		if (responseText) {
+			const responseData = JSON.parse(responseText);
+			this.apiCoverage.recordRequest({
+				method: 'POST',
+				path: '/users/login',
+				status: response.status(),
+				requestBody: requestData,
+				responseBody: responseData
+			});
+		}
+		
 		return response;
 	}
 }
 
 test.describe('RealWorld API Coverage', () => {
 	let apiCoverage;
+	let usersService;
 
-	test.beforeEach(async ({ request }) => {
+	test.beforeAll(async () => {
 		apiCoverage = new ApiCoverage({
-			swaggerPath: path.join(__dirname, 'swagger.json'),
-			baseUrl: 'https://realworld.qa.guru',
-			basePath: '/api',
-			outputDir: './coverage/realworldClass',
-			title: 'RealWorld API Coverage Report',
-			debug: false,
+			swaggerPath: 'tests/integration/playwright/swagger.json',
+			outputPath: 'coverage/realworldClass',
 			generateHtmlReport: true
 		});
 		await apiCoverage.start();
 	});
 
-	test.afterEach(async () => {
+	test.afterAll(async () => {
 		await apiCoverage.stop();
 	});
 
-	test('should track API coverage with login request', async ({ request }) => {
-		const usersService = new UsersService(request);
-		const response = await usersService.login('eve.holt@reqres.in', 'cityslicka');
-		expect(response.status()).toBe(404);
-		
-		// Генерируем отчет явно
-		await apiCoverage.generateReport();
+	test('should track API coverage with login request - invalid credentials', async ({ request }) => {
+		usersService = new UsersService(request, apiCoverage);
+		const response = await usersService.login({
+			email: 'test@test.com',
+			password: 'test123'
+		});
+
+		expect(response.status()).toBe(422);
+		const data = await response.json();
+		expect(data.errors).toBeDefined();
+		expect(data.errors.body).toContain('Wrong email/password combination');
 	});
 }); 
 

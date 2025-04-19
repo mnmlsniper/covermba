@@ -118,17 +118,26 @@ export class ApiCoverage {
      */
     async stop() {
         if (!this.isInitialized) {
+            this._log('warn', 'API coverage not initialized, skipping stop');
             return;
         }
 
         try {
+            this._log('debug', 'Starting stop process');
+            this._log('debug', `generateHtmlReport option: ${this.options.generateHtmlReport}`);
+            
             // Генерируем отчет перед остановкой
             if (this.options.generateHtmlReport) {
+                this._log('debug', 'Generating HTML report');
                 const coverage = this._calculateCoverage();
+                this._log('debug', `Calculated coverage: ${JSON.stringify(coverage)}`);
                 await this._saveCoverage(coverage);
                 await this._generateHtmlReport(coverage);
+            } else {
+                this._log('debug', 'HTML report generation is disabled');
             }
             
+            this._log('debug', 'Stopping collector');
             await this.collector.stop();
             this.isInitialized = false;
             this._log('info', 'API coverage stopped');
