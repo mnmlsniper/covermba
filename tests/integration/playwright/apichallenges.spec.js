@@ -47,7 +47,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     collector.recordRequest({
         method: 'POST',
         path: '/challenger',
-        status: challengerResponse.status(),
+        statusCode: challengerResponse.status(),
         requestBody: {},
         responseBody
     });
@@ -74,7 +74,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     collector.recordRequest({
         method: 'GET',
         path: '/challenges',
-        status: challengesResponse.status(),
+        statusCode: challengesResponse.status(),
         requestBody: {},
         responseBody
     });
@@ -101,7 +101,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     collector.recordRequest({
         method: 'GET',
         path: '/todos',
-        status: todosResponse.status(),
+        statusCode: todosResponse.status(),
         requestBody: {},
         responseBody
     });
