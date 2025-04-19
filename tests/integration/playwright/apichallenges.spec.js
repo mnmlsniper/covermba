@@ -19,10 +19,7 @@ test.beforeAll(async () => {
 
     await apiCoverage.start();
     collector = new RequestCollector(apiCoverage);
-    
-    // Log loaded endpoints for debugging
-    console.log('Loaded endpoints:', Object.keys(apiCoverage.endpoints));
-    console.log('Swagger spec:', apiCoverage.swaggerSpec);
+
 });
 
 test('should track API coverage with multiple requests', async ({ request }) => {
@@ -76,13 +73,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
 
     // Генерируем отчет и получаем данные о покрытии
     const coverage = await apiCoverage.generateReport();
-    console.log('Coverage report:', JSON.stringify(coverage, null, 2));
-    
-    // Log all endpoints and their requests
-    console.log('All endpoints:', coverage.endpoints.map(e => ({
-        key: `${e.method} ${e.path}`,
-        requests: e.requests.length
-    })));
+      
     
     expect(coverage).toBeTruthy();
     expect(coverage.totalEndpoints).toBeGreaterThan(0);
@@ -94,7 +85,6 @@ test('should track API coverage with multiple requests', async ({ request }) => 
         .filter(endpoint => endpoint.requests && endpoint.requests.length > 0)
         .map(endpoint => `${endpoint.method} ${endpoint.path}`);
     
-    console.log('Covered endpoints:', coveredEndpoints);
     expect(coveredEndpoints.length).toBeGreaterThan(0);
     expect(coveredEndpoints).toContain('POST /challenger');
     expect(coveredEndpoints).toContain('GET /challenges');

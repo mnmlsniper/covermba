@@ -119,11 +119,9 @@ export class RequestCollector {
                 postData: request.postData
             };
             
-            console.log('Collected simple request:', collectedRequest);
+            this.requests.push(collectedRequest);
         }
 
-        this.requests.push(collectedRequest);
-        
         // Передаем запрос в ApiCoverage
         if (this.apiCoverage.recordRequest) {
             // Извлекаем путь из URL, удаляя baseUrl
@@ -154,7 +152,6 @@ export class RequestCollector {
                 headers: collectedRequest.headers
             };
             
-            console.log('Passing request to ApiCoverage:', apiCoverageRequest);
             this.apiCoverage.recordRequest(apiCoverageRequest);
         }
         
