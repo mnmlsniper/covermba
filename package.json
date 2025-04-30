@@ -1,6 +1,6 @@
 {
   "name": "cover-mba",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Библиотека для отслеживания покрытия API тестами с использованием Playwright",
   "type": "module",
   "main": "src/index.js",
