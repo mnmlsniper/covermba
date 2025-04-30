@@ -15,7 +15,7 @@ test.beforeAll(async () => {
         basePath: '/api',
         outputDir: './coverage/realworld',
         title: 'RealWorld API Coverage Report',
-        debug: true,
+        debug: false,
         generateHtmlReport: true
     });
     
@@ -59,7 +59,7 @@ test('should track API coverage with login request', async ({ request }) => {
         responseBody
     });
     
-    expect(response.ok()).toBeTruthy();
+    expect(status).toBe(200);
     const responseData = responseBody;
     expect(responseData.user).toBeDefined();
     expect(responseData.user.email).toBeDefined();
@@ -86,10 +86,13 @@ test('should track API coverage with login request - invalid credentials', async
         console.log('No response body or invalid JSON');
     }
 
+    const status = response.status();
+    console.log('Response status code:', status);
+
     apiCoverage.recordRequest({
         method: 'POST',
         path: '/users/login',
-        status: response.status(),
+        status,
         requestBody: {
             user: {
                 email: 'test@test.com',
@@ -99,6 +102,8 @@ test('should track API coverage with login request - invalid credentials', async
         responseBody
     });
 
+    expect(status).toBe(422);
+    
     // Выводим информацию о запросе для отладки
     console.log('Request URL:', response.url());
     console.log('\nRequest data:', {
@@ -107,7 +112,6 @@ test('should track API coverage with login request - invalid credentials', async
             password: 'test123'
         }
     });
-    console.log('\nResponse status:', response.status());
     console.log('\nResponse headers:', response.headers());
-    console.log('\nResponse text:', await response.text());
+    console.log('\nResponse body:', responseBody);
 }); 

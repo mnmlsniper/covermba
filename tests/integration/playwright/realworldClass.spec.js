@@ -6,6 +6,7 @@ class UsersService {
 		this.request = request;
 		this.apiCoverage = apiCoverage;
 		this.baseUrl = 'https://realworld.qa.guru/api';
+		
 	}
 
 	async login(data) {
@@ -15,8 +16,8 @@ class UsersService {
 				password: data.password
 			}
 		};
-		console.log('Request URL:', `${this.baseUrl}/users/login`);
-		console.log('Request data:', JSON.stringify(requestData, null, 2));
+	//	console.log('Request URL:', `${this.baseUrl}/users/login`);
+//		console.log('Request data:', JSON.stringify(requestData, null, 2));
 		
 		const response = await this.request.post(`${this.baseUrl}/users/login`, {
 			data: requestData
@@ -50,7 +51,9 @@ test.describe('RealWorld API Coverage', () => {
 		apiCoverage = new ApiCoverage({
 			swaggerPath: 'tests/integration/playwright/swagger.json',
 			outputDir: './coverage/realworldClass',
-			generateHtmlReport: true
+			generateHtmlReport: true,
+			debug: false,
+
 		});
 		await apiCoverage.start();
 	});

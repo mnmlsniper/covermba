@@ -210,7 +210,7 @@ export class ApiCoverage {
                 
                 const key = endpoint.name; // Use the explicit name as key
                 this.endpoints.set(key, endpoint);
-                console.log(`Processed endpoint: ${key}`);
+              //  console.log(`Processed endpoint: ${key}`);
             }
         }
     }
