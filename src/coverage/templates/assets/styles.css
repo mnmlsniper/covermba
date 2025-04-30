@@ -1,0 +1,53 @@
+.coverage-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.coverage-badge.covered {
+    background-color: #198754;
+    color: white;
+}
+
+.coverage-badge.partial {
+    background-color: #ffc107;
+    color: black;
+}
+
+.coverage-badge.missing {
+    background-color: #dc3545;
+    color: white;
+}
+
+.method-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+}
+
+.method-badge.get {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.method-badge.post {
+    background-color: #198754;
+    color: white;
+}
+
+.method-badge.put {
+    background-color: #ffc107;
+    color: black;
+}
+
+.method-badge.delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+.method-badge.patch {
+    background-color: #6f42c1;
+    color: white;
+} 

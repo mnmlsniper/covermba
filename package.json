@@ -1,6 +1,6 @@
 {
   "name": "cover-mba",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Библиотека для отслеживания покрытия API тестами с использованием Playwright",
   "type": "module",
   "main": "src/index.js",
@@ -21,10 +21,14 @@
   "license": "MIT",
   "dependencies": {
     "ejs": "^3.1.10",
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.0",
     "swagger-parser": "^2.1.26"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "eslint": "^8.56.0",
+    "playwright": "^1.52.0",
     "prettier": "^3.2.5"
   },
   "files": [

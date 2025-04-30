@@ -1,5 +1,11 @@
-const { chromium } = require('playwright');
-const ApiCoverage = require('./src');
+import { chromium } from 'playwright';
+import { ApiCoverage } from './src/index.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function runExample() {
     // Инициализируем API coverage с несколькими Swagger файлами

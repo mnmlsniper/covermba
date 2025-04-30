@@ -1,4 +1,4 @@
-import { RequestCollector } from './collector/RequestCollector.js';
+import { RequestCollector } from './coverage/RequestCollector.js';
 import { ApiCoverage } from './coverage/ApiCoverage.js';
 
 export {
