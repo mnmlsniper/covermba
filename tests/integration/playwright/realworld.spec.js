@@ -43,10 +43,13 @@ test('should track API coverage with login request', async ({ request }) => {
         console.log('No response body or invalid JSON');
     }
 
+    const status = response.status();
+    console.log('Response status code:', status);
+
     apiCoverage.recordRequest({
         method: 'POST',
         path: '/users/login',
-        status: response.status(),
+        status,
         requestBody: {
             user: {
                 email: 'test@example.com',
