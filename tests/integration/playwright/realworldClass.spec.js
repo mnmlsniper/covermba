@@ -16,25 +16,20 @@ class UsersService {
 				password: data.password
 			}
 		};
-	//	console.log('Request URL:', `${this.baseUrl}/users/login`);
-//		console.log('Request data:', JSON.stringify(requestData, null, 2));
 		
 		const response = await this.request.post(`${this.baseUrl}/users/login`, {
 			data: requestData
 		});
 		
-		console.log('Response status:', response.status());
-		console.log('Response headers:', response.headers());
 		const responseText = await response.text();
-		console.log('Response text:', responseText);
 		
 		if (responseText) {
 			const responseData = JSON.parse(responseText);
-			this.apiCoverage.recordRequest({
+			this.apiCoverage.collector.collect({
 				method: 'POST',
-				path: '/users/login',
-				status: response.status(),
-				requestBody: requestData,
+				url: `${this.baseUrl}/users/login`,
+				statusCode: response.status(),
+				postData: requestData,
 				responseBody: responseData
 			});
 		}

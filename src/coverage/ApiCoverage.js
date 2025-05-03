@@ -36,12 +36,14 @@ export class ApiCoverage {
         this.reportGenerator = new ReportGenerator(options);
         this.swaggerSpec = options.swaggerSpec;
         this.ignoreConfig = options.ignoreConfig || {};
+        
+        // Используем относительный путь от корня проекта
         this.options = {
             swaggerPath: options.swaggerPath,
             baseUrl: options.baseUrl,
             basePath: options.basePath,
-            debug: options.debug || false,
-            outputDir: options.outputDir || 'coverage',
+            debug: true,
+            outputDir: 'coverage/apichallenges',
             logLevel: options.logLevel || 'info',
             logFile: options.logFile || 'coverage.log',
             generateHtmlReport: options.generateHtmlReport || false
@@ -51,10 +53,9 @@ export class ApiCoverage {
         this.requests = [];
         this.isInitialized = false;
         
-        // Initialize collector after setting up options
         this.collector = new RequestCollector(this, this.options);
 
-        this.templatePath = path.join(__dirname, 'templates', 'coverage.html');
+        this.templatePath = path.join(__dirname, 'templates', 'report.ejs');
         this.assetsPath = path.join(__dirname, 'templates', 'assets');
         this.outputPath = this.options.outputDir;
         this.setupHandlebars();
@@ -104,19 +105,15 @@ export class ApiCoverage {
                 content = await fs.readFile(swaggerPath, 'utf8');
             }
 
-            this.swaggerSpec = swaggerPath.endsWith('.yaml') || swaggerPath.endsWith('.yml')
+            const spec = swaggerPath.endsWith('.yaml') || swaggerPath.endsWith('.yml')
                 ? yaml.load(content)
                 : JSON.parse(content);
 
-            // Извлекаем basePath из Swagger спецификации, если не указан в опциях
-            if (!this.options.basePath && this.swaggerSpec.basePath) {
-                this.options.basePath = this.swaggerSpec.basePath;
-                this._log('debug', `Extracted basePath from Swagger: ${this.options.basePath}`);
-            }
-
-            this._log('info', `Loaded Swagger spec from ${swaggerPath}`);
+            return spec;
         } catch (error) {
-            this._log('error', `Error loading Swagger spec: ${error.message}`);
+            if (this.options.debug) {
+                console.error('Failed to load Swagger spec:', error);
+            }
             throw error;
         }
     }
@@ -129,20 +126,16 @@ export class ApiCoverage {
      * @throws {Error} Если не удалось загрузить или обработать Swagger спецификацию
      */
     async start() {
-        if (this.isInitialized) {
-            return;
+        if (!this.swaggerSpec) {
+            this.swaggerSpec = await this._loadSwaggerSpec();
+        }
+        
+        if (!this.swaggerSpec) {
+            throw new Error('Failed to load Swagger specification');
         }
 
-        try {
-            await this._loadSwaggerSpec();
-            this._processSwaggerSpec(this.swaggerSpec);
-            await this.collector.start();
-            this.isInitialized = true;
-            this._log('info', 'API coverage started');
-        } catch (error) {
-            this._log('error', `Failed to start API coverage: ${error.message}`);
-            throw error;
-        }
+        this._processSwaggerSpec(this.swaggerSpec);
+        this.isInitialized = true;
     }
 
     /**
@@ -152,34 +145,16 @@ export class ApiCoverage {
      * @throws {Error} Если не удалось сохранить результаты или сгенерировать отчет
      */
     async stop() {
-        if (!this.isInitialized) {
-            this._log('warn', 'API coverage not initialized, skipping stop');
-            return;
+        if (this.options.generateHtmlReport) {
+            await this._generateHtmlReport();
         }
-
-        try {
-            this._log('debug', 'Starting stop process');
-            this._log('debug', `generateHtmlReport option: ${this.options.generateHtmlReport}`);
-            
-            // Генерируем отчет перед остановкой
-            if (this.options.generateHtmlReport) {
-                this._log('debug', 'Generating HTML report');
-                const coverage = this._calculateCoverage();
-                this._log('debug', `Calculated coverage: ${JSON.stringify(coverage)}`);
-                await this._saveCoverage(coverage);
-                await this._generateHtmlReport(coverage);
-            } else {
-                this._log('debug', 'HTML report generation is disabled');
-            }
-            
-            this._log('debug', 'Stopping collector');
-            await this.collector.stop();
-            this.isInitialized = false;
-            this._log('info', 'API coverage stopped');
-        } catch (error) {
-            this._log('error', `Failed to stop API coverage: ${error.message}`);
-            throw error;
-        }
+        
+        // Сохраняем requests.json
+        const requestsPath = path.join(this.outputPath, 'requests.json');
+        await fs.writeFile(requestsPath, JSON.stringify(this.collector.getRequests(), null, 2));
+        
+        await this._generateJsonReport();
+        await this.collector.stop();
     }
 
     /**
@@ -187,17 +162,21 @@ export class ApiCoverage {
      * @private
      */
     _processSwaggerSpec(spec) {
+        if (!spec) return;
+
         const basePath = spec.basePath || '';
         
+        if (!spec.paths) return;
+
         for (const [path, pathObj] of Object.entries(spec.paths)) {
             for (const [method, methodObj] of Object.entries(pathObj)) {
-                if (method === 'parameters') continue; // Skip path-level parameters
+                if (method === 'parameters') continue;
                 
                 const fullPath = this._normalizePath(basePath + path);
                 const endpoint = {
                     method: method.toUpperCase(),
                     path: fullPath,
-                    name: `${method.toUpperCase()} ${fullPath}`, // Add explicit name field
+                    name: `${method.toUpperCase()} ${fullPath}`,
                     description: methodObj.summary || methodObj.description || '',
                     expectedStatusCodes: this._getExpectedStatusCodes(methodObj),
                     parameters: methodObj.parameters || [],
@@ -208,9 +187,8 @@ export class ApiCoverage {
                     coverageStatus: 'not-covered'
                 };
                 
-                const key = endpoint.name; // Use the explicit name as key
+                const key = endpoint.name;
                 this.endpoints.set(key, endpoint);
-              //  console.log(`Processed endpoint: ${key}`);
             }
         }
     }
@@ -222,8 +200,9 @@ export class ApiCoverage {
      * @returns {string} Нормализованный путь
      */
     _normalizePath(path) {
-        // Remove trailing slash if present
-        return path.endsWith('/') ? path.slice(0, -1) : path;
+        path = path.endsWith('/') ? path.slice(0, -1) : path;
+        path = path.startsWith('/') ? path : '/' + path;
+        return path;
     }
 
     /**
@@ -259,20 +238,39 @@ export class ApiCoverage {
      * @param {Object} [request.responseBody] - Тело ответа
      */
     recordRequest(request) {
-        this._log('debug', `Recording request: ${JSON.stringify(request)}`);
-        
         const { method, path, status, statusCode, requestBody, responseBody } = request;
-        const basePath = this.options.basePath || '';
-        const normalizedPath = this._normalizePath(path.startsWith(basePath) ? path : basePath + path);
+        const normalizedPath = this._normalizePath(path);
+        
+        // Формируем ключ для поиска эндпоинта
         const key = `${method.toUpperCase()} ${normalizedPath}`;
         
-        this._log('debug', `Normalized request key: ${key}`);
-        this._log('debug', `Available endpoint keys: ${Array.from(this.endpoints.keys()).join(', ')}`);
+        if (this.options.debug) {
+            console.log('ApiCoverage received request:', {
+                method,
+                path,
+                normalizedPath,
+                key,
+                status: status || statusCode,
+                requestBody,
+                responseBody
+            });
+            console.log('Available endpoints:', Array.from(this.endpoints.keys()));
+        }
         
-        // Find matching endpoint
-        const endpoint = this.endpoints.get(key);
+        // Ищем эндпоинт по ключу
+        let endpoint = this.endpoints.get(key);
+        
+        // Если не нашли, пробуем найти по пути без учета метода
+        if (!endpoint) {
+            for (const [endpointKey, endpointValue] of this.endpoints) {
+                if (endpointValue.path === normalizedPath) {
+                    endpoint = endpointValue;
+                    break;
+                }
+            }
+        }
+        
         if (endpoint) {
-            this._log('debug', `Found matching endpoint: ${key}`);
             const requestData = {
                 method,
                 path: normalizedPath,
@@ -283,8 +281,12 @@ export class ApiCoverage {
             };
             endpoint.requests.push(requestData);
             this._updateEndpointCoverage(endpoint);
-        } else {
-            this._log('debug', `No matching endpoint found for: ${key}`);
+            
+            if (this.options.debug) {
+                console.log('Request recorded for endpoint:', endpoint.name);
+            }
+        } else if (this.options.debug) {
+            console.log('No matching endpoint found for request');
         }
     }
 
@@ -314,13 +316,6 @@ export class ApiCoverage {
             endpoint.isPartiallyCovered = false;
             endpoint.coverageStatus = 'not-covered';
         }
-
-        this._log('debug', `Updated endpoint coverage:
-            Path: ${endpoint.path}
-            Expected status codes: ${Array.from(expectedStatusCodes).join(', ')}
-            Covered status codes: ${Array.from(coveredStatusCodes).join(', ')}
-            Coverage status: ${endpoint.coverageStatus}
-        `);
     }
 
     _calculateCoverage() {
@@ -330,7 +325,6 @@ export class ApiCoverage {
         const partiallyCoveredEndpoints = endpointsList.filter(e => e.coverageStatus === 'partially-covered').length;
         const missingEndpoints = endpointsList.filter(e => e.coverageStatus === 'not-covered').length;
         
-        // Group endpoints by service (based on first path segment)
         const services = new Map();
         for (const [key, endpoint] of this.endpoints) {
             const serviceName = endpoint.path.split('/')[1] || 'default';
@@ -345,13 +339,6 @@ export class ApiCoverage {
 
         const percentage = totalEndpoints === 0 ? 0 : 
             ((coveredEndpoints + (partiallyCoveredEndpoints * 0.5)) / totalEndpoints) * 100;
-
-        this._log('debug', `Coverage calculation:
-            Total endpoints: ${totalEndpoints}
-            Covered endpoints: ${coveredEndpoints}
-            Partially covered endpoints: ${partiallyCoveredEndpoints}
-            Missing endpoints: ${missingEndpoints}
-            Coverage percentage: ${percentage}%`);
         
         return {
             totalEndpoints,
@@ -368,15 +355,9 @@ export class ApiCoverage {
         const coveragePath = path.join(outputDir, 'coverage.json');
         
         try {
-            // Создаем директорию, если она не существует
             await fs.mkdir(outputDir, { recursive: true });
-            this._log('info', `Created directory: ${outputDir}`);
-            
-            // Сохраняем данные о покрытии
             await fs.writeFile(coveragePath, JSON.stringify(coverage, null, 2));
-            this._log('info', `Saved coverage data to: ${coveragePath}`);
         } catch (error) {
-            this._log('error', `Failed to save coverage data: ${error.message}`);
             throw error;
         }
     }
@@ -389,55 +370,31 @@ export class ApiCoverage {
      * @private
      * @throws {Error} Если не удалось сгенерировать отчет
      */
-    async _generateHtmlReport(coverage) {
-        if (!this.options.generateHtmlReport) {
-            return;
-        }
-
-        const outputDir = this.options.outputDir;
-        const templatePath = path.join(__dirname, 'templates', 'report.ejs');
-        
+    async _generateHtmlReport() {
         try {
-            // Логируем структуру данных для отладки
-            this._log('debug', 'Coverage data structure:');
-            this._log('debug', JSON.stringify(coverage, null, 2));
-
-            const template = await fs.readFile(templatePath, 'utf8');
-            const html = ejs.render(template, {
-                coverage,
-                services: coverage.services,
-                isPartiallyCovered,
-                getStatusCodeClass,
-                formatParameter,
-                formatResponse,
-                formatRequest
-            });
+            const coverage = this._calculateCoverage();
+            const template = await fs.readFile(this.templatePath, 'utf8');
+            const html = ejs.render(template, { coverage });
             
-            const reportPath = path.join(outputDir, 'coverage.html');
+            await fs.mkdir(this.outputPath, { recursive: true });
+            
+            const reportPath = path.join(this.outputPath, 'coverage.html');
             await fs.writeFile(reportPath, html);
-            
-            this._log('info', `HTML report generated at: ${reportPath}`);
         } catch (error) {
-            this._log('error', `Error generating HTML report: ${error.message}`);
             throw error;
         }
     }
 
     /**
      * Логирует сообщение:
-     * - В консоль если включен debug режим
      * - В файл если указан logFile
      * @private
      * @param {string} level - Уровень логирования
      * @param {string} message - Сообщение для логирования
      */
     async _log(level, message) {
-        const { debug, logLevel, logFile } = this.options;
+        const { logFile } = this.options;
         
-        if (debug || level === 'error') {
-            console.log(`[${level.toUpperCase()}] ${message}`);
-        }
-
         if (logFile) {
             try {
                 const logDir = path.dirname(logFile);
@@ -445,7 +402,7 @@ export class ApiCoverage {
                 const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`;
                 await fs.appendFile(logFile, logMessage);
             } catch (error) {
-                console.error(`Error writing to log file: ${error.message}`);
+                throw error;
             }
         }
     }
@@ -461,16 +418,16 @@ export class ApiCoverage {
     async generateReport() {
         const coverage = this._calculateCoverage();
         
-        // Ensure output directory exists
+        // Добавляем запросы в данные покрытия
+        coverage.requests = this.collector.getRequests();
+        
         await fs.mkdir(this.outputPath, { recursive: true });
         
-        // Copy assets
         const assetsOutputPath = path.join(this.outputPath, 'assets');
         await fs.mkdir(assetsOutputPath, { recursive: true });
         await fs.mkdir(path.join(assetsOutputPath, 'css'), { recursive: true });
         await fs.mkdir(path.join(assetsOutputPath, 'js'), { recursive: true });
         
-        // Copy Bootstrap files
         await fs.copyFile(
             path.join(this.assetsPath, 'css', 'bootstrap.min.css'),
             path.join(assetsOutputPath, 'css', 'bootstrap.min.css')
@@ -480,7 +437,6 @@ export class ApiCoverage {
             path.join(assetsOutputPath, 'js', 'bootstrap.bundle.min.js')
         );
         
-        // Generate HTML report using EJS
         const template = await fs.readFile(path.join(__dirname, 'templates', 'report.ejs'), 'utf8');
         const html = ejs.render(template, {
             coverage,
@@ -498,7 +454,24 @@ export class ApiCoverage {
             JSON.stringify(coverage, null, 2)
         );
         
-        console.log(`Coverage report generated in ${this.outputPath}`);
+        // Сохраняем requests.json
+        await fs.writeFile(
+            path.join(this.outputPath, 'requests.json'),
+            JSON.stringify(this.collector.getRequests(), null, 2)
+        );
+        
         return coverage;
+    }
+
+    async _generateJsonReport() {
+        try {
+            const coverage = this._calculateCoverage();
+            await fs.mkdir(this.outputPath, { recursive: true });
+            
+            const reportPath = path.join(this.outputPath, 'coverage.json');
+            await fs.writeFile(reportPath, JSON.stringify(coverage, null, 2));
+        } catch (error) {
+            throw error;
+        }
     }
 } 

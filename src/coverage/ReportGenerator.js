@@ -18,6 +18,7 @@ export class ReportGenerator {
      * @param {string} [options.templatePath] - Путь к шаблону отчета
      */
     constructor(options = {}) {
+        // Используем относительный путь от корня проекта
         this.outputDir = options.outputDir || 'coverage';
         this.templatePath = options.templatePath || path.join(__dirname, 'templates', 'report.ejs');
     }
@@ -29,7 +30,21 @@ export class ReportGenerator {
      */
     async generate(coverage) {
         const processedData = this._processCoverageData(coverage);
-        await this._generateHtml(processedData);
+        
+        // Сохраняем coverage.json
+        const coveragePath = path.join(this.outputDir, 'coverage.json');
+        await fs.promises.writeFile(coveragePath, JSON.stringify(processedData, null, 2));
+        
+        // Сохраняем requests.json
+        const requestsPath = path.join(this.outputDir, 'requests.json');
+        await fs.promises.writeFile(requestsPath, JSON.stringify(coverage.requests || [], null, 2));
+        
+        // Генерируем HTML отчет
+        const htmlContent = await this._generateHtml(processedData);
+        const htmlPath = path.join(this.outputDir, 'coverage.html');
+        await fs.promises.writeFile(htmlPath, htmlContent);
+        
+        // Копируем ресурсы
         await this._copyAssets();
     }
 
@@ -144,6 +159,36 @@ export class ReportGenerator {
             } else {
                 await fs.promises.copyFile(srcPath, destPath);
             }
+        }
+    }
+
+    async generateReport(coverage) {
+        try {
+            // Создаем директорию для отчета, если она не существует
+            await fs.promises.mkdir(this.outputDir, { recursive: true });
+
+            // Генерируем HTML отчет
+            const template = await fs.promises.readFile(this.templatePath, 'utf-8');
+            const html = ejs.render(template, { coverage });
+            await fs.promises.writeFile(path.join(this.outputDir, 'coverage.html'), html);
+
+            // Копируем ассеты
+            const templateAssetsDir = path.join(path.dirname(this.templatePath), 'assets');
+            const outputAssetsDir = path.join(this.outputDir, 'assets');
+            await this.copyAssets(templateAssetsDir, outputAssetsDir);
+
+            // Генерируем JSON отчет
+            await fs.promises.writeFile(
+                path.join(this.outputDir, 'coverage.json'),
+                JSON.stringify(coverage, null, 2)
+            );
+
+            return {
+                html: path.join(this.outputDir, 'coverage.html'),
+                json: path.join(this.outputDir, 'coverage.json')
+            };
+        } catch (error) {
+            throw new Error(`Failed to generate report: ${error.message}`);
         }
     }
 } 

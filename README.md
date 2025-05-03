@@ -1,161 +1,133 @@
-# API Coverage Library
+# CoverMBA
 
-A library for tracking API test coverage based on Swagger/OpenAPI specifications.
-
-[Russian version (Русская версия)](#api-coverage-library-ru)
+CoverMBA is a powerful API coverage tracking tool that helps you monitor and analyze your API test coverage. It integrates seamlessly with Playwright and other testing frameworks to provide detailed coverage reports.
 
 ## Features
 
-- Automatic tracking of API endpoints coverage
-- Support for Swagger/OpenAPI specifications
-- Real-time request monitoring
-- Detailed HTML reports
-- JSON reports for custom analysis
-- Coverage status tracking (Covered, Partial, Missing)
+- **Swagger/OpenAPI Integration**: Automatically loads and parses Swagger/OpenAPI specifications
+- **Request Tracking**: Collects and analyzes HTTP requests made during tests
+- **Coverage Reports**: Generates detailed HTML and JSON reports
+- **Multiple Test Types**: Supports different testing approaches:
+  - Direct API calls
+  - Page object model
+  - Service layer
+  - Class-based approach
+- **Debug Mode**: Detailed logging for troubleshooting
+- **Customizable Output**: Configure output directories and report formats
 
 ## Installation
 
 ```bash
-npm install api-coverage
+npm install covermba
 ```
 
 ## Quick Start
 
-```javascript
-import { ApiCoverage } from 'api-coverage';
+1. Import and initialize CoverMBA in your test setup:
 
-const coverage = new ApiCoverage({
-    swaggerPath: './swagger.json',
-    baseUrl: 'http://api.example.com',
-    outputDir: 'coverage'
+```javascript
+import { ApiCoverage } from 'covermba';
+
+const apiCoverage = new ApiCoverage({
+    swaggerPath: 'path/to/swagger.json',
+    baseUrl: 'https://api.example.com',
+    outputDir: './coverage',
+    generateHtmlReport: true,
+    debug: true
 });
 
-await coverage.start();
-// Your tests here
-await coverage.stop();
+await apiCoverage.start();
 ```
 
-## Coverage Statuses
+2. Track API requests in your tests:
 
-The library tracks three coverage statuses for each endpoint:
+```javascript
+// Direct API calls
+const response = await request.post('https://api.example.com/users', {
+    data: { name: 'John' }
+});
 
-1. **Covered**: All expected status codes have been tested
-2. **Partial**: Some status codes have been tested, but not all
-3. **Missing**: No status codes have been tested
+apiCoverage.collector.collect({
+    method: 'POST',
+    url: 'https://api.example.com/users',
+    statusCode: response.status(),
+    postData: { name: 'John' },
+    responseBody: await response.json()
+});
 
-## Report Types
+// Service layer
+const userService = new UserService(request, apiCoverage);
+await userService.createUser({ name: 'John' });
 
-### HTML Report
-- Visual representation of API coverage
-- Interactive interface
-- Detailed endpoint information
-- Status code coverage tracking
-- Request/response details
+// Class-based approach
+class UserService {
+    constructor(request, apiCoverage) {
+        this.request = request;
+        this.apiCoverage = apiCoverage;
+    }
 
-### JSON Report
-- Machine-readable format
-- Suitable for custom analysis
-- Integration with other tools
-- Historical data comparison
+    async createUser(data) {
+        const response = await this.request.post('https://api.example.com/users', {
+            data
+        });
+        
+        this.apiCoverage.collector.collect({
+            method: 'POST',
+            url: 'https://api.example.com/users',
+            statusCode: response.status(),
+            postData: data,
+            responseBody: await response.json()
+        });
+        
+        return response;
+    }
+}
+```
 
-## Architecture
+3. Generate reports:
 
-The library consists of several key components:
-
-1. **ApiCoverage**: Main class that orchestrates the coverage tracking
-2. **RequestCollector**: Monitors and collects API requests
-3. **ReportGenerator**: Generates coverage reports
-4. **Coverage Calculator**: Analyzes coverage data
+```javascript
+await apiCoverage.generateReport();
+await apiCoverage.stop();
+```
 
 ## Configuration Options
 
 ```javascript
 {
-    swaggerPath: string,      // Path to Swagger/OpenAPI specification
-    baseUrl: string,          // Base URL of the API
-    outputDir: string,        // Output directory for reports
-    debug: boolean,           // Enable debug logging
-    generateHtmlReport: boolean // Generate HTML report
+    swaggerPath: 'path/to/swagger.json',  // Path to Swagger/OpenAPI spec
+    baseUrl: 'https://api.example.com',   // Base URL of your API
+    basePath: '/api',                     // Base path of your API
+    outputDir: './coverage',              // Directory for reports
+    generateHtmlReport: true,             // Generate HTML report
+    debug: false,                         // Enable debug mode
+    logLevel: 'info',                     // Log level
+    logFile: 'coverage.log'               // Log file path
 }
 ```
 
----
+## Report Structure
 
-# API Coverage Library (RU)
+CoverMBA generates the following files in the output directory:
 
-Библиотека для отслеживания покрытия тестами API на основе спецификаций Swagger/OpenAPI.
+- `coverage.html`: HTML report with visual coverage metrics
+- `coverage.json`: JSON report with detailed coverage data
+- `requests.json`: List of all tracked API requests
+- `assets/`: Static resources for the HTML report
 
-## Возможности
+## Examples
 
-- Автоматическое отслеживание покрытия эндпоинтов API
-- Поддержка спецификаций Swagger/OpenAPI
-- Мониторинг запросов в реальном времени
-- Подробные HTML-отчеты
-- JSON-отчеты для пользовательского анализа
-- Отслеживание статусов покрытия (Покрыто, Частично, Не покрыто)
+Check out the `tests/integration/playwright` directory for complete examples:
 
-## Установка
+- `apichallenges.spec.js`: Direct API calls
+- `realworld.spec.js`: Page object model
+- `realworld3level.spec.js`: Service layer
+- `realworldClass.spec.js`: Class-based approach
 
-```bash
-npm install api-coverage
-```
+## Contributing
 
-## Быстрый старт
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
 
-```javascript
-import { ApiCoverage } from 'api-coverage';
+## License
 
-const coverage = new ApiCoverage({
-    swaggerPath: './swagger.json',
-    baseUrl: 'http://api.example.com',
-    outputDir: 'coverage'
-});
-
-await coverage.start();
-// Ваши тесты здесь
-await coverage.stop();
-```
-
-## Статусы покрытия
-
-Библиотека отслеживает три статуса покрытия для каждого эндпоинта:
-
-1. **Covered (Покрыто)**: Протестированы все ожидаемые статус-коды
-2. **Partial (Частично)**: Протестирована часть статус-кодов, но не все
-3. **Missing (Не покрыто)**: Не протестирован ни один статус-код
-
-## Типы отчетов
-
-### HTML-отчет
-- Визуальное представление покрытия API
-- Интерактивный интерфейс
-- Подробная информация по эндпоинтам
-- Отслеживание покрытия статус-кодов
-- Детали запросов и ответов
-
-### JSON-отчет
-- Машиночитаемый формат
-- Подходит для пользовательского анализа
-- Интеграция с другими инструментами
-- Сравнение исторических данных
-
-## Архитектура
-
-Библиотека состоит из нескольких ключевых компонентов:
-
-1. **ApiCoverage**: Основной класс, управляющий отслеживанием покрытия
-2. **RequestCollector**: Мониторит и собирает API-запросы
-3. **ReportGenerator**: Генерирует отчеты о покрытии
-4. **Coverage Calculator**: Анализирует данные о покрытии
-
-## Параметры конфигурации
-
-```javascript
-{
-    swaggerPath: string,      // Путь к спецификации Swagger/OpenAPI
-    baseUrl: string,          // Базовый URL API
-    outputDir: string,        // Директория для отчетов
-    debug: boolean,           // Включить отладочное логирование
-    generateHtmlReport: boolean // Генерировать HTML-отчет
-}
-``` 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

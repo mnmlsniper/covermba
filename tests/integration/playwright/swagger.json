@@ -21,6 +21,41 @@
     "application/json"
   ],
   "paths": {
+    "/users": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Register a new user",
+        "tags": [
+          "User and Authentication"
+        ],
+        "operationId": "CreateUser",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Details of the new user to register",
+            "schema": {
+              "$ref": "#/definitions/NewUserRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/UserResponse"
+            }
+          },
+          "422": {
+            "description": "Unexpected error",
+            "schema": {
+              "$ref": "#/definitions/GenericErrorModel"
+            }
+          }
+        }
+      }
+    },
     "/users/login": {
       "post": {
         "summary": "Login user",
@@ -61,6 +96,37 @@
     }
   },
   "definitions": {
+    "NewUser": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string",
+          "format": "password"
+        }
+      },
+      "required": [
+        "username",
+        "email",
+        "password"
+      ]
+    },
+    "NewUserRequest": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/NewUser"
+        }
+      },
+      "required": [
+        "user"
+      ]
+    },
     "LoginUser": {
       "type": "object",
       "properties": {

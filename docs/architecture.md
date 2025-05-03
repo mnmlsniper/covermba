@@ -1,79 +1,132 @@
-# API Coverage Architecture
+# Architecture
 
-## Overview
+CoverMBA follows a modular architecture with clear separation of concerns. The main components are:
 
-The API Coverage tool is designed to track and report API test coverage based on Swagger specifications. It follows a modular architecture that separates concerns and makes the system more maintainable and testable.
+## Core Components
 
-## Architecture Diagram
+### ApiCoverage
+The main facade class that orchestrates the coverage tracking process. It:
+- Initializes and manages all other components
+- Provides the public API for users
+- Handles configuration and lifecycle management
 
-```mermaid
-graph TD
-    A[ApiCoverage] --> B[SwaggerLoader]
-    A --> C[RequestCollector]
-    A --> D[CoverageCalculator]
-    A --> E[ReportGenerator]
-    
-    B --> F[SwaggerSpec]
-    C --> G[RequestStorage]
-    D --> H[CoverageData]
-    E --> I[Reports]
+### SwaggerLoader
+Responsible for loading and parsing Swagger/OpenAPI specifications:
+- Loads specifications from file or URL
+- Validates the specification format
+- Extracts endpoint definitions and schemas
+- Maps paths and methods to operations
 
-    F -.-> D
-    G -.-> D
-    H -.-> E
-```
+### RequestCollector
+Manages the collection and storage of API requests:
+- Collects request data during test execution
+- Stores requests in memory and/or file system
+- Provides methods for querying collected requests
+- Handles request deduplication and aggregation
 
-## Components
+### CoverageCalculator
+Calculates coverage metrics based on collected requests:
+- Matches requests to API endpoints
+- Calculates coverage percentages
+- Identifies covered and uncovered endpoints
+- Supports partial coverage calculation
 
-### 1. ApiCoverage (Facade)
-The main entry point that orchestrates the entire process. It provides a simple interface for:
-- Initializing the coverage tracking with Swagger specification
-- Setting up request collection
-- Starting and stopping coverage tracking
-- Generating coverage reports
+### ReportGenerator
+Generates various report formats:
+- HTML reports with visual metrics
+- JSON reports with detailed data
+- Custom report formats
+- Asset management for reports
 
-### 2. SwaggerLoader
-Responsible for:
-- Loading Swagger specifications from file
-- Parsing and validating the specification
-- Extracting basePath if not provided
-- Providing access to API endpoint definitions
+## Integration Components
 
-### 3. RequestCollector
-Handles:
-- Collecting API requests from Playwright
-- Extracting paths from URLs by removing baseUrl
-- Transforming requests into a standardized format
-- Storing requests for coverage calculation
+### Playwright Integration
+Provides seamless integration with Playwright:
+- Intercepts Playwright requests
+- Collects request data automatically
+- Supports different testing approaches:
+  - Direct API calls
+  - Page object model
+  - Service layer
+  - Class-based approach
 
-### 4. CoverageCalculator
-Calculates:
-- Total number of endpoints
-- Covered endpoints
-- Partially covered endpoints
-- Coverage percentage
-- Groups endpoints by services
+### Request Interceptor
+Handles request interception and modification:
+- Intercepts HTTP requests
+- Collects request and response data
+- Supports request modification
+- Handles different request types
 
-### 5. ReportGenerator
-Generates:
-- HTML reports with coverage statistics
-- JSON reports with detailed coverage data
-- Visual representations of coverage
+## Support Components
+
+### Logger
+Provides logging functionality:
+- Configurable log levels
+- File and console output
+- Structured logging
+- Debug mode support
+
+### Configuration
+Manages configuration settings:
+- Loads and validates configuration
+- Provides default values
+- Supports environment variables
+- Handles configuration overrides
 
 ## Data Flow
 
-1. Swagger specification is loaded and parsed
-2. RequestCollector is initialized with baseUrl and basePath
-3. API requests are automatically collected during test execution
-4. Coverage is calculated based on recorded requests and Swagger spec
-5. Reports are generated when coverage tracking is stopped
+1. **Initialization**:
+   - ApiCoverage is initialized with configuration
+   - SwaggerLoader loads and parses the specification
+   - RequestCollector is set up for request collection
 
-## Benefits
+2. **Request Collection**:
+   - Requests are intercepted during test execution
+   - Request data is collected and stored
+   - Requests are matched to API endpoints
 
-- **Modularity**: Each component can be replaced or modified independently
-- **Testability**: Components can be tested in isolation
-- **Flexibility**: Easy to add new features or change existing ones
-- **Maintainability**: Clear separation of concerns makes code easier to understand and maintain
-- **Integration**: Seamless integration with Playwright test framework
-- **Automatic Collection**: No need to manually record requests
-- **Configurable**: Easy to configure through options 
+3. **Coverage Calculation**:
+   - CoverageCalculator processes collected requests
+   - Coverage metrics are calculated
+   - Coverage data is prepared for reporting
+
+4. **Report Generation**:
+   - ReportGenerator creates reports
+   - Reports are saved to the output directory
+   - Assets are copied to the output directory
+
+## Directory Structure
+
+```
+src/
+  coverage/
+    ApiCoverage.js        # Main facade
+    SwaggerLoader.js      # Swagger/OpenAPI handling
+    RequestCollector.js   # Request collection
+    CoverageCalculator.js # Coverage calculation
+    ReportGenerator.js    # Report generation
+  integration/
+    playwright/          # Playwright integration
+    request/            # Request interception
+  support/
+    logger.js           # Logging
+    config.js           # Configuration
+tests/
+  integration/          # Integration tests
+  unit/                # Unit tests
+docs/
+  architecture.md      # Architecture documentation
+  configuration.md     # Configuration documentation
+  integration.md       # Integration documentation
+  methods.md           # API methods documentation
+  reports.md           # Reports documentation
+```
+
+## Design Principles
+
+1. **Modularity**: Each component has a single responsibility
+2. **Extensibility**: Easy to add new integrations and report formats
+3. **Configurability**: Flexible configuration options
+4. **Testability**: Components are designed for easy testing
+5. **Performance**: Efficient request collection and processing
+6. **Maintainability**: Clear code structure and documentation 

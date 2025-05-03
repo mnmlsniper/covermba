@@ -1,125 +1,133 @@
-# API Coverage
+# CoverMBA
 
-Инструмент для отслеживания и отчетности о покрытии тестами API на основе спецификаций Swagger.
+CoverMBA - это мощный инструмент для отслеживания покрытия API тестами. Он легко интегрируется с Playwright и другими фреймворками для тестирования, предоставляя детальные отчеты о покрытии.
 
 ## Возможности
 
-- Отслеживает запросы API во время выполнения тестов
-- Рассчитывает покрытие на основе спецификаций Swagger
-- Генерирует детальные HTML-отчеты
-- Поддерживает определение частичного покрытия
-- Группирует эндпоинты по сервисам
-- Предоставляет статистику покрытия
-
-## Архитектура
-
-Инструмент следует модульной архитектуре с четким разделением ответственности:
-
-- **ApiCoverage**: Основной фасад, который управляет процессом
-- **SwaggerLoader**: Обрабатывает загрузку и парсинг спецификации Swagger
-- **RequestTracker**: Управляет записью и хранением запросов API
-- **CoverageCalculator**: Рассчитывает метрики покрытия
-- **ReportGenerator**: Генерирует различные форматы отчетов
-
-Подробную документацию по архитектуре смотрите в [docs/architecture.md](docs/architecture.md).
+- **Интеграция со Swagger/OpenAPI**: Автоматически загружает и парсит спецификации Swagger/OpenAPI
+- **Отслеживание запросов**: Собирает и анализирует HTTP-запросы, выполняемые во время тестов
+- **Отчеты о покрытии**: Генерирует детальные HTML и JSON отчеты
+- **Различные подходы к тестированию**: Поддерживает разные подходы к тестированию:
+  - Прямые вызовы API
+  - Page object model
+  - Сервисный слой
+  - Классовый подход
+- **Режим отладки**: Подробное логирование для отладки
+- **Настраиваемый вывод**: Конфигурация директорий и форматов отчетов
 
 ## Установка
 
 ```bash
-npm install @covermba/api-coverage
+npm install covermba
 ```
 
-## Использование
+## Быстрый старт
 
-### Базовое использование
+1. Импортируйте и инициализируйте CoverMBA в настройках тестов:
 
 ```javascript
-import ApiCoverage from '@covermba/api-coverage';
+import { ApiCoverage } from 'covermba';
 
 const apiCoverage = new ApiCoverage({
-  swaggerUrl: 'https://api.example.com/swagger.json',
-  outputDir: 'coverage'
+    swaggerPath: 'путь/к/swagger.json',
+    baseUrl: 'https://api.example.com',
+    outputDir: './coverage',
+    generateHtmlReport: true,
+    debug: true
 });
 
-// Инициализация отслеживания покрытия
-await apiCoverage.init();
-
-// Запись запросов API во время тестов
-apiCoverage.recordRequest({
-  method: 'GET',
-  path: '/api/users',
-  statusCode: 200
-});
-
-// Генерация отчета
-await apiCoverage.generateReport();
+await apiCoverage.start();
 ```
 
-### Опции конфигурации
+2. Отслеживайте API-запросы в тестах:
 
 ```javascript
-const options = {
-  swaggerUrl: 'https://api.example.com/swagger.json', // URL спецификации Swagger
-  swaggerFile: './swagger.json', // Путь к локальному файлу Swagger
-  outputDir: 'coverage', // Директория для отчетов
-  includeTags: ['public', 'private'], // Отслеживать только эндпоинты с этими тегами
-  excludeTags: ['deprecated'], // Исключить эндпоинты с этими тегами
-  partialCoverageThreshold: 0.5 // Считать эндпоинт покрытым, если покрыто столько процентов кодов статуса
-};
+// Прямые вызовы API
+const response = await request.post('https://api.example.com/users', {
+    data: { name: 'John' }
+});
+
+apiCoverage.collector.collect({
+    method: 'POST',
+    url: 'https://api.example.com/users',
+    statusCode: response.status(),
+    postData: { name: 'John' },
+    responseBody: await response.json()
+});
+
+// Сервисный слой
+const userService = new UserService(request, apiCoverage);
+await userService.createUser({ name: 'John' });
+
+// Классовый подход
+class UserService {
+    constructor(request, apiCoverage) {
+        this.request = request;
+        this.apiCoverage = apiCoverage;
+    }
+
+    async createUser(data) {
+        const response = await this.request.post('https://api.example.com/users', {
+            data
+        });
+        
+        this.apiCoverage.collector.collect({
+            method: 'POST',
+            url: 'https://api.example.com/users',
+            statusCode: response.status(),
+            postData: data,
+            responseBody: await response.json()
+        });
+        
+        return response;
+    }
+}
 ```
 
-## Формат отчета
+3. Генерируйте отчеты:
 
-Сгенерированный HTML-отчет включает:
-
-- Общий процент покрытия
-- Количество общих, покрытых, частично покрытых и непокрытых эндпоинтов
-- Детальный просмотр каждого эндпоинта с:
-  - Кратким описанием и описанием
-  - Ожидаемыми кодами статуса
-  - Записанными запросами
-  - Статусом покрытия
-- Группировку по сервисам/тегам
-- Опции фильтрации
-
-## Разработка
-
-### Структура проекта
-
-```
-src/
-  coverage/
-    ApiCoverage.js        # Основной фасад
-    SwaggerLoader.js      # Обработка спецификации Swagger
-    RequestTracker.js     # Запись и хранение запросов
-    CoverageCalculator.js # Расчет покрытия
-    ReportGenerator.js    # Генерация отчетов
-    templates/           # Шаблоны отчетов
-tests/
-  integration/          # Интеграционные тесты
-  unit/                # Модульные тесты
-docs/
-  architecture.md      # Документация по архитектуре
+```javascript
+await apiCoverage.generateReport();
+await apiCoverage.stop();
 ```
 
-### Запуск тестов
+## Параметры конфигурации
 
-```bash
-# Запуск всех тестов
-npm test
-
-# Запуск конкретного файла тестов
-npm test tests/unit/ApiCoverage.test.js
+```javascript
+{
+    swaggerPath: 'путь/к/swagger.json',  // Путь к спецификации Swagger/OpenAPI
+    baseUrl: 'https://api.example.com',  // Базовый URL вашего API
+    basePath: '/api',                    // Базовый путь API
+    outputDir: './coverage',             // Директория для отчетов
+    generateHtmlReport: true,            // Генерировать HTML отчет
+    debug: false,                        // Включить режим отладки
+    logLevel: 'info',                    // Уровень логирования
+    logFile: 'coverage.log'              // Путь к файлу логов
+}
 ```
 
-## Вклад в проект
+## Структура отчетов
 
-1. Форкните репозиторий
-2. Создайте ветку для новой функциональности
-3. Внесите свои изменения
-4. Запустите тесты
-5. Отправьте pull request
+CoverMBA генерирует следующие файлы в выходной директории:
+
+- `coverage.html`: HTML отчет с визуальными метриками покрытия
+- `coverage.json`: JSON отчет с детальными данными о покрытии
+- `requests.json`: Список всех отслеженных API-запросов
+- `assets/`: Статические ресурсы для HTML отчета
+
+## Примеры
+
+Ознакомьтесь с директорией `tests/integration/playwright` для полных примеров:
+
+- `apichallenges.spec.js`: Прямые вызовы API
+- `realworld.spec.js`: Page object model
+- `realworld3level.spec.js`: Сервисный слой
+- `realworldClass.spec.js`: Классовый подход
+
+## Участие в проекте
+
+Приветствуются любые вклады в проект! Пожалуйста, ознакомьтесь с нашим [Руководством по участию](CONTRIBUTING.md) для получения подробной информации.
 
 ## Лицензия
 
-MIT 
+Этот проект распространяется под лицензией MIT - подробности в файле [LICENSE](LICENSE). 

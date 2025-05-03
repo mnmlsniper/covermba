@@ -40,17 +40,16 @@ test('should track API coverage with login request', async ({ request }) => {
     try {
         responseBody = await response.json();
     } catch (e) {
-        console.log('No response body or invalid JSON');
+        // Ignore error
     }
 
     const status = response.status();
-    console.log('Response status code:', status);
 
-    apiCoverage.recordRequest({
+    apiCoverage.collector.collect({
         method: 'POST',
-        path: '/users/login',
-        status,
-        requestBody: {
+        url: 'https://realworld.qa.guru/api/users/login',
+        statusCode: status,
+        postData: {
             user: {
                 email: 'test@example.com',
                 password: 'password123'
@@ -83,17 +82,16 @@ test('should track API coverage with login request - invalid credentials', async
     try {
         responseBody = await response.json();
     } catch (e) {
-        console.log('No response body or invalid JSON');
+        // Ignore error
     }
 
     const status = response.status();
-    console.log('Response status code:', status);
 
-    apiCoverage.recordRequest({
+    apiCoverage.collector.collect({
         method: 'POST',
-        path: '/users/login',
-        status,
-        requestBody: {
+        url: 'https://realworld.qa.guru/api/users/login',
+        statusCode: status,
+        postData: {
             user: {
                 email: 'test@test.com',
                 password: 'test123'
@@ -103,15 +101,4 @@ test('should track API coverage with login request - invalid credentials', async
     });
 
     expect(status).toBe(422);
-    
-    // Выводим информацию о запросе для отладки
-    console.log('Request URL:', response.url());
-    console.log('\nRequest data:', {
-        user: {
-            email: 'test@test.com',
-            password: 'test123'
-        }
-    });
-    console.log('\nResponse headers:', response.headers());
-    console.log('\nResponse body:', responseBody);
 }); 

@@ -12,13 +12,13 @@ test.beforeAll(async () => {
     apiCoverage = new ApiCoverage({
         swaggerPath: 'https://apichallenges.herokuapp.com/docs/swagger',
         baseUrl: 'https://apichallenges.herokuapp.com',
-        debug: false,  // Включаем отладку
+        debug: true,  // Включаем отладку
         outputDir: './coverage/apichallenges',
         generateHtmlReport: true
     });
 
     await apiCoverage.start();
-    collector = new RequestCollector(apiCoverage);
+    collector = apiCoverage.collector;  // Используем коллектор из ApiCoverage
 });
 
 test.afterAll(async () => {
@@ -41,14 +41,14 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             responseBody = JSON.parse(text);
         }
     } catch (e) {
-        console.log('No response body for challenger request');
+        // Ignore error
     }
 
-    collector.recordRequest({
+    collector.collect({
         method: 'POST',
-        path: '/challenger',
+        url: 'https://apichallenges.herokuapp.com/challenger',
         statusCode: challengerResponse.status(),
-        requestBody: {},
+        postData: {},
         responseBody
     });
 
@@ -68,14 +68,14 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             responseBody = JSON.parse(text);
         }
     } catch (e) {
-        console.log('No response body for challenges request');
+        // Ignore error
     }
 
-    collector.recordRequest({
+    collector.collect({
         method: 'GET',
-        path: '/challenges',
+        url: 'https://apichallenges.herokuapp.com/challenges',
         statusCode: challengesResponse.status(),
-        requestBody: {},
+        postData: {},
         responseBody
     });
 
@@ -95,24 +95,28 @@ test('should track API coverage with multiple requests', async ({ request }) => 
             responseBody = JSON.parse(text);
         }
     } catch (e) {
-        console.log('No response body for todos request');
+        // Ignore error
     }
 
-    collector.recordRequest({
+    collector.collect({
         method: 'GET',
-        path: '/todos',
+        url: 'https://apichallenges.herokuapp.com/todos',
         statusCode: todosResponse.status(),
-        requestBody: {},
+        postData: {},
         responseBody
     });
 
     // Генерируем отчет
     await apiCoverage.generateReport();
+    
+    // Останавливаем ApiCoverage для сохранения requests.json
+    await apiCoverage.stop();
 
     // Проверяем существование файлов отчета
     const coverageDir = path.join(process.cwd(), 'coverage', 'apichallenges');
     const htmlReportPath = path.join(coverageDir, 'coverage.html');
     const jsonReportPath = path.join(coverageDir, 'coverage.json');
+    const requestsPath = path.join(coverageDir, 'requests.json');
 
     // Проверяем существование директории
     expect(fs.existsSync(coverageDir)).toBe(true);
@@ -120,6 +124,7 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     // Проверяем существование файлов отчета
     expect(fs.existsSync(htmlReportPath)).toBe(true);
     expect(fs.existsSync(jsonReportPath)).toBe(true);
+    expect(fs.existsSync(requestsPath)).toBe(true);
 
     // Проверяем содержимое JSON отчета
     const jsonReport = JSON.parse(fs.readFileSync(jsonReportPath, 'utf8'));
@@ -127,4 +132,9 @@ test('should track API coverage with multiple requests', async ({ request }) => 
     expect(jsonReport.totalEndpoints).toBeGreaterThan(0);
     expect(jsonReport.coveredEndpoints).toBeGreaterThan(0);
     expect(jsonReport.percentage).toBeGreaterThan(0);
+    
+    // Проверяем содержимое requests.json
+    const requests = JSON.parse(fs.readFileSync(requestsPath, 'utf8'));
+    expect(requests).toBeTruthy();
+    expect(requests.length).toBeGreaterThan(0);
 }); 

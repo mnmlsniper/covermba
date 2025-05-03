@@ -44,10 +44,13 @@ export class RequestCollector {
         }
         this.requests = [];
         this.apiCoverage = apiCoverage;
+        
+        // Используем относительный путь от корня проекта
         this.options = {
-            outputDir: options.outputDir || 'coverage',
+            outputDir: 'coverage/apichallenges',
             logLevel: options.logLevel || 'info',
-            logFile: options.logFile || 'coverage.log'
+            logFile: options.logFile || 'coverage.log',
+            debug: options.debug || false
         };
     }
 
@@ -135,8 +138,7 @@ export class RequestCollector {
                 headers: request.headers(),
                 postData: request.postData()
             };
-            
-            console.log('Collected Playwright request:', collectedRequest);
+            this.requests.push(collectedRequest);
         } 
         // Если это простой объект запроса
         else {
@@ -148,39 +150,21 @@ export class RequestCollector {
                 statusCode: request.statusCode || request.status,
                 timestamp: new Date().toISOString(),
                 headers: request.headers || {},
-                postData: request.postData
+                postData: request.postData,
+                responseBody: request.responseBody
             };
-            
             this.requests.push(collectedRequest);
         }
 
         // Передаем запрос в ApiCoverage
         if (this.apiCoverage.recordRequest) {
-            // Извлекаем путь из URL, удаляя baseUrl
-            const baseUrl = this.apiCoverage.options.baseUrl;
-            let path = collectedRequest.path;
-            
-            // Удаляем baseUrl из пути, если он есть
-            if (baseUrl) {
-                const baseUrlObj = new URL(baseUrl);
-                if (path.startsWith(baseUrlObj.pathname)) {
-                    path = path.substring(baseUrlObj.pathname.length);
-                }
-            }
-            
-            // Добавляем basePath, если он есть и еще не добавлен
-            const basePath = this.apiCoverage.options.basePath;
-            if (basePath && !path.startsWith(basePath)) {
-                path = basePath + (path.startsWith('/') ? path : '/' + path);
-            }
-            
             // Преобразуем запрос в формат, ожидаемый ApiCoverage
             const apiCoverageRequest = {
                 method: collectedRequest.method.toUpperCase(),
-                path: path,
+                path: collectedRequest.path,
                 statusCode: collectedRequest.statusCode,
                 requestBody: collectedRequest.postData,
-                responseBody: null,
+                responseBody: collectedRequest.responseBody,
                 headers: collectedRequest.headers,
                 timestamp: collectedRequest.timestamp
             };
@@ -189,5 +173,35 @@ export class RequestCollector {
         }
         
         return request;
+    }
+
+    addRequest(request) {
+        const normalizedRequest = this.normalizeRequest(request);
+        this.requests.push(normalizedRequest);
+        this.saveRequests();
+    }
+
+    addPlaywrightRequest(request) {
+        const collectedRequest = {
+            url: request.url(),
+            method: request.method(),
+            headers: request.headers(),
+            postData: request.postData(),
+            timestamp: new Date().toISOString()
+        };
+        this.requests.push(collectedRequest);
+        this.saveRequests();
+    }
+
+    addSimpleRequest(request) {
+        const collectedRequest = {
+            url: request.url,
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+            timestamp: new Date().toISOString()
+        };
+        this.requests.push(collectedRequest);
+        this.saveRequests();
     }
 } 
