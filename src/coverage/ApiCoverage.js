@@ -325,17 +325,19 @@ export class ApiCoverage {
         const partiallyCoveredEndpoints = endpointsList.filter(e => e.coverageStatus === 'partially-covered').length;
         const missingEndpoints = endpointsList.filter(e => e.coverageStatus === 'not-covered').length;
         
-        const services = new Map();
+        const servicesMap = {};
         for (const [key, endpoint] of this.endpoints) {
             const serviceName = endpoint.path.split('/')[1] || 'default';
-            if (!services.has(serviceName)) {
-                services.set(serviceName, {
+            if (!servicesMap[serviceName]) {
+                servicesMap[serviceName] = {
                     name: serviceName,
                     endpoints: {}
-                });
+                };
             }
-            services.get(serviceName).endpoints[key] = endpoint;
+            servicesMap[serviceName].endpoints[key] = endpoint;
         }
+
+        const services = Object.values(servicesMap);
 
         const percentage = totalEndpoints === 0 ? 0 : 
             ((coveredEndpoints + (partiallyCoveredEndpoints * 0.5)) / totalEndpoints) * 100;
@@ -346,7 +348,7 @@ export class ApiCoverage {
             partiallyCoveredEndpoints,
             missingEndpoints,
             percentage,
-            services: Array.from(services.values())
+            services
         };
     }
 
@@ -374,7 +376,15 @@ export class ApiCoverage {
         try {
             const coverage = this._calculateCoverage();
             const template = await fs.readFile(this.templatePath, 'utf8');
-            const html = ejs.render(template, { coverage });
+            const html = ejs.render(template, {
+                coverage,
+                services: coverage.services,
+                isPartiallyCovered,
+                getStatusCodeClass,
+                formatParameter,
+                formatResponse,
+                formatRequest
+            });
             
             await fs.mkdir(this.outputPath, { recursive: true });
             

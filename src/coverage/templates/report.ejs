@@ -114,8 +114,8 @@
                                     </h2>
                                     <div id="collapse-<%= service.name %>-<%= index %>" class="accordion-collapse collapse">
                                         <div class="accordion-body">
-                                            <p><strong>Summary:</strong> <%= endpoint.summary %></p>
-                                            <p><strong>Description:</strong> <%= endpoint.description %></p>
+                                            <p><strong>Summary:</strong> <%= endpoint.summary || '' %></p>
+                                            <p><strong>Description:</strong> <%= endpoint.description || '' %></p>
                                             <% if (endpoint.tags && endpoint.tags.length) { %>
                                                 <p><strong>Tags:</strong> <%= endpoint.tags.join(', ') %></p>
                                             <% } %>
